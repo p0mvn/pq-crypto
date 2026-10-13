@@ -1,0 +1,12 @@
+---
+description: docs/notes.md is read-only for AI agents
+alwaysApply: true
+---
+
+# Do not edit docs/notes.md
+
+`docs/notes.md` holds the owner's personal notes. Never modify it.
+
+- Do not edit, rewrite, reformat, rename, move, or delete `docs/notes.md`, even when asked to clean up or update docs broadly.
+- Reading it for context is fine.
+- If a task seems to require changing it, stop and tell the user what you would change, and let them make the edit.
