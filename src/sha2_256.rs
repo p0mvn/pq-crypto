@@ -85,7 +85,7 @@ fn message_digits(digest: &MessageDigest) -> [u8; CHAINS] {
 
 /// Selects which value to derive for a WOTS+ chain step.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum KeyAndMask {
+enum KeyOrMaskSelector {
     /// Encoded as 0 to derive the hash key.
     Key,
     /// Encoded as 1 to derive the input mask.
@@ -102,10 +102,12 @@ enum AddressError {
 /// Encodes the standalone WOTS+ hash address with big-endian fields.
 /// Layer, tree, address type, and one-time-key index are fixed to zero.
 /// Returns an error for chains outside 0..=66 or steps outside 0..=14.
+/// It labels a particular hash step so that key generation, signing, and
+/// verification all derive the same key and mask for that step.
 fn hash_address(
     chain_index: u32,
     hash_step: u32,
-    selector: KeyAndMask,
+    selector: KeyOrMaskSelector,
 ) -> Result<[u8; 32], AddressError> {
     // Validate chain_index
     if chain_index > (CHAINS - 1) as u32 {
@@ -263,7 +265,7 @@ mod tests {
 
     #[test]
     fn hash_address_encodes_zero_chain_and_step_for_both_selectors() {
-        for (selector, encoded) in [(KeyAndMask::Key, 0), (KeyAndMask::Mask, 1)] {
+        for (selector, encoded) in [(KeyOrMaskSelector::Key, 0), (KeyOrMaskSelector::Mask, 1)] {
             let mut expected = [0u8; 32];
             expected[31] = encoded;
 
@@ -273,7 +275,7 @@ mod tests {
 
     #[test]
     fn hash_address_encodes_largest_chain_and_step_for_both_selectors() {
-        for (selector, encoded) in [(KeyAndMask::Key, 0), (KeyAndMask::Mask, 1)] {
+        for (selector, encoded) in [(KeyOrMaskSelector::Key, 0), (KeyOrMaskSelector::Mask, 1)] {
             let mut expected = [0u8; 32];
             expected[23] = 66;
             expected[27] = 14;
@@ -287,7 +289,7 @@ mod tests {
     fn hash_address_rejects_out_of_range_chains() {
         for chain_index in [67, u32::MAX] {
             for hash_step in [0, 14] {
-                for selector in [KeyAndMask::Key, KeyAndMask::Mask] {
+                for selector in [KeyOrMaskSelector::Key, KeyOrMaskSelector::Mask] {
                     assert_eq!(
                         hash_address(chain_index, hash_step, selector),
                         Err(AddressError::InvalidChainIndex),
@@ -302,7 +304,7 @@ mod tests {
         // Position 15 is an endpoint; no hash step starts there.
         for hash_step in [15, u32::MAX] {
             for chain_index in [0, 66] {
-                for selector in [KeyAndMask::Key, KeyAndMask::Mask] {
+                for selector in [KeyOrMaskSelector::Key, KeyOrMaskSelector::Mask] {
                     assert_eq!(
                         hash_address(chain_index, hash_step, selector),
                         Err(AddressError::InvalidHashStep),
