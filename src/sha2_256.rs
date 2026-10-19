@@ -274,6 +274,32 @@ mod tests {
     }
 
     #[test]
+    fn hash_address_encodes_chain_field_alone() {
+        let mut expected = [0u8; 32];
+        expected[23] = 1;
+
+        assert_eq!(hash_address(1, 0, KeyOrMaskSelector::Key), Ok(expected));
+    }
+
+    #[test]
+    fn hash_address_encodes_step_field_alone() {
+        let mut expected = [0u8; 32];
+        expected[27] = 1;
+
+        assert_eq!(hash_address(0, 1, KeyOrMaskSelector::Key), Ok(expected));
+    }
+
+    #[test]
+    fn hash_address_encodes_distinct_chain_step_and_selector() {
+        let mut expected = [0u8; 32];
+        expected[23] = 5;
+        expected[27] = 7;
+        expected[31] = 1;
+
+        assert_eq!(hash_address(5, 7, KeyOrMaskSelector::Mask), Ok(expected));
+    }
+
+    #[test]
     fn hash_address_encodes_largest_chain_and_step_for_both_selectors() {
         for (selector, encoded) in [(KeyOrMaskSelector::Key, 0), (KeyOrMaskSelector::Mask, 1)] {
             let mut expected = [0u8; 32];
