@@ -203,6 +203,7 @@ mod tests {
         let digest = MessageDigest::from_bytes([0; DIGEST_BYTES]);
         let digits = message_digits(&digest);
         
+        // 64 * (15 - 0) = 960
         // 960 = 0x3c0 in hex
         // checksum = 3, 12, 0
         let mut expected = [0u8; 67];
@@ -212,7 +213,16 @@ mod tests {
 
     #[test]
     fn message_digits_for_maximum_bytes_has_zero_checksum() {
-        todo!()
+        let mut max_digest = [0; DIGEST_BYTES];
+        max_digest.fill(0xff);
+        let digest: MessageDigest = MessageDigest::from_bytes(max_digest);
+        let digits = message_digits(&digest);
+        
+        // 64 * (15 - 15) = 0
+        // checksum = 0, 0, 0
+        let mut expected = [15u8; 67];
+        expected[64..].copy_from_slice(&[0, 0, 0]);
+        assert_eq!(digits, expected);
     }
 
     #[test]
