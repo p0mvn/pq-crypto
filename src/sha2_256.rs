@@ -355,12 +355,21 @@ mod tests {
 
     #[test]
     fn message_digits_reads_high_nibble_before_low_nibble() {
-        todo!()
+        let digest = MessageDigest::from_bytes([0xa7; DIGEST_BYTES]);
+        let digits = message_digits(&digest);
+
+        assert_eq!(&digits[..2], &[10, 7]);
     }
 
     #[test]
     fn message_digits_preserves_message_byte_order() {
-        todo!()
+        let mut bytes = [0u8; DIGEST_BYTES];
+        bytes[..3].copy_from_slice(&[0x12, 0x34, 0x56]);
+
+        let digest = MessageDigest::from_bytes(bytes);
+        let digits = message_digits(&digest);
+
+        assert_eq!(&digits[..6], &[1, 2, 3, 4, 5, 6]);
     }
 
     #[test]
