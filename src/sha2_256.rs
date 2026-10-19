@@ -83,6 +83,43 @@ fn message_digits(digest: &MessageDigest) -> [u8; CHAINS] {
     result
 }
 
+/// Selects which value to derive for a WOTS+ chain step.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum KeyAndMask {
+    /// Encoded as 0 to derive the hash key.
+    Key,
+    /// Encoded as 1 to derive the input mask.
+    Mask,
+}
+
+/// A chain or step lies outside the fixed standalone profile.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AddressError {
+    InvalidChainIndex,
+    InvalidHashStep,
+}
+
+/// Encodes the standalone WOTS+ hash address with big-endian fields.
+/// Layer, tree, address type, and one-time-key index are fixed to zero.
+/// Returns an error for chains outside 0..=66 or steps outside 0..=14.
+fn hash_address(
+    chain_index: u32,
+    hash_step: u32,
+    selector: KeyAndMask,
+) -> Result<[u8; 32], AddressError> {
+    // Validate chain_index
+    if chain_index > (CHAINS - 1) as u32 {
+        return Err(AddressError::InvalidChainIndex);
+    }
+
+    // Validate hash_step
+    if hash_step > (BASE16_MAX - 1) as u32 {
+        return Err(AddressError::InvalidHashStep);
+    }
+
+    todo!()
+}
+
 impl MessageDigest {
     pub fn from_bytes(bytes: [u8; DIGEST_BYTES]) -> Self {
         Self(bytes)
@@ -223,6 +260,57 @@ pub enum VerifyError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hash_address_encodes_zero_chain_and_step_for_both_selectors() {
+        for (selector, encoded) in [(KeyAndMask::Key, 0), (KeyAndMask::Mask, 1)] {
+            let mut expected = [0u8; 32];
+            expected[31] = encoded;
+
+            assert_eq!(hash_address(0, 0, selector), Ok(expected));
+        }
+    }
+
+    #[test]
+    fn hash_address_encodes_largest_chain_and_step_for_both_selectors() {
+        for (selector, encoded) in [(KeyAndMask::Key, 0), (KeyAndMask::Mask, 1)] {
+            let mut expected = [0u8; 32];
+            expected[23] = 66;
+            expected[27] = 14;
+            expected[31] = encoded;
+
+            assert_eq!(hash_address(66, 14, selector), Ok(expected));
+        }
+    }
+
+    #[test]
+    fn hash_address_rejects_out_of_range_chains() {
+        for chain_index in [67, u32::MAX] {
+            for hash_step in [0, 14] {
+                for selector in [KeyAndMask::Key, KeyAndMask::Mask] {
+                    assert_eq!(
+                        hash_address(chain_index, hash_step, selector),
+                        Err(AddressError::InvalidChainIndex),
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn hash_address_rejects_endpoint_position_as_step_and_larger_steps() {
+        // Position 15 is an endpoint; no hash step starts there.
+        for hash_step in [15, u32::MAX] {
+            for chain_index in [0, 66] {
+                for selector in [KeyAndMask::Key, KeyAndMask::Mask] {
+                    assert_eq!(
+                        hash_address(chain_index, hash_step, selector),
+                        Err(AddressError::InvalidHashStep),
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn message_digits_reads_high_nibble_before_low_nibble() {
