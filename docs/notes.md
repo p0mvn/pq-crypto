@@ -103,6 +103,11 @@ They must not be equal. Checking inequality catches accidental equality; the see
 
 2. Derive the secret start of each chain: `x[i] = PRF(S, BE32(i))` for i = 0..66
   * BE32(i) means the chain number i written as exactly 32 bytes in big-endian order.
+  * 67 = 64 chains for the message digest + 3 chains for its checksum
+  * Each chain signs one hexadecimal digit of n (32), 2 hex digits per byte
+  * For checksum, 960 is the largest possible checksumL there are 64 message digits, each contributes at most 15
+  * `checksum = (15 − digit[0]) + (15 − digit[1]) + ... + (15 − digit[63])`
+  * 64 x 15 = 960 = 0x3c0 in hex
 
 3. 3. Starting from each x[i], perform all 15 WOTS+ chain steps to obtain its public endpoint
 
