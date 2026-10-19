@@ -6,9 +6,10 @@ Winternitz one-time signature construction described in
 purpose is to support a Zakura custom-network experiment, followed by wallet
 integration in Vizor.
 
-The current deliverable is documentation and API design. There is no Cargo
-package, Rust implementation, executable example, or cryptographic test suite.
-The next implementation step will be requested separately.
+The current deliverable is documentation and an API-only Cargo scaffold in
+`src/sha2_256.rs`. Every function body is `todo!()` and panics when called.
+There is no cryptographic implementation, executable example, or cryptographic
+test suite. Function implementation will be requested separately.
 
 ## Start here
 
@@ -64,13 +65,13 @@ does not create a new signature.
 | Signatures | Consuming signing and verification | Planned |
 | Qualification | Parsing, independent vectors, example, and review | Planned |
 
-Only the foundation stage is in scope now. Later stages should be implemented
+The public API boilerplate is also outlined in Rust. Later stages should be implemented
 and explained one at a time, rather than as an unattended batch.
 
 ## Boundaries
 
-This phase stops at these documents. It does not create a crate scaffold or
-implement any of the proposed APIs. Compact-key compression, Merkle trees,
+This phase includes the documents and an unimplemented crate scaffold.
+Compact-key compression, Merkle trees,
 wallet derivation, durable signing state, transaction hashing, Zakura opcodes,
 network deployment, Vizor changes, and PIR changes are outside this phase.
 

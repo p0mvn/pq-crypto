@@ -1,9 +1,10 @@
 # Crate plan and proposed API contracts
 
-Status: documentation and design only. Every signature below describes a future
-interface; none is implemented or compiled in this workspace. Rust blocks use
-`ignore` to make that distinction explicit. They are interface sketches, not
-complete Rust source files.
+Status: documentation and API boilerplate. `src/sha2_256.rs` contains public
+types and signatures, with every function body left as `todo!()`. Rust blocks
+below remain design sketches. The scaffold uses infallible fixed-array
+constructors and fallible `TryFrom<&[u8]>` parsing instead of the slice-based
+constructors shown below. No cryptographic behavior is implemented.
 
 ## 1. Decision and scope
 
@@ -12,9 +13,9 @@ The selected algorithm is RFC 8391 `WOTSP-SHA2_256`: SHA-256, 32-byte elements,
 base 16, and 67 chains. The first implementation will retain the full public
 key so each chain's role is easy to follow.
 
-The current authorized work ends with `README.md`, `docs/construction.md`, and
-this document. No Cargo manifest, source module, method stub, executable
-example, cryptographic test, reference harness, or CI workflow is created now.
+The current scope includes the documentation, Cargo manifest, and public API
+stubs. It excludes function implementation, executable examples, cryptographic
+tests, a reference harness, and CI workflows.
 
 The later library will sign exactly one caller-supplied 32-byte value per key.
 It will not compute transaction digests or decide network binding. It is a
@@ -53,7 +54,7 @@ its included code in its [README](https://github.com/XMSS/xmss-reference/blob/17
 | Signing and verification | Consuming signing and checking every reconstructed endpoint |
 | Public encodings | Fixed-length, unambiguous bytes for the verifying key and signature |
 
-These are responsibilities, not files created during this phase. Keep the
+These are implementation responsibilities; only public API stubs exist. Keep the
 private helpers private. Do not expose generic parameter selection, arbitrary
 hash callbacks, raw mutable contexts, or a public unchecked signing helper.
 
@@ -61,8 +62,9 @@ Use RustCrypto `sha2` for SHA-256, `rand_core` for caller-supplied cryptographic
 randomness, `zeroize` for managed secret storage, and `subtle` for verification
 comparison and secret-seed equality checks. The RNG interface sketch follows
 [`rand_core` 0.10.1](https://docs.rs/rand_core/0.10.1/rand_core/), where
-`TryCryptoRng` extends the fallible `TryRng` interface. There is no dependency
-lockfile or compiled dependency selection in this phase.
+`TryCryptoRng` extends the fallible `TryRng` interface. There is no
+cryptographic implementation in this phase. The scaffold depends only on
+`rand_core` and `zeroize`; hashing and comparison dependencies come with their users.
 
 The future crate should forbid unsafe code. Fixed-size arrays suffice for the
 core representation. This design does not commit to a `no_std` support matrix,

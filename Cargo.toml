@@ -1,0 +1,10 @@
+[package]
+name = "wots"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "API scaffold for standalone RFC 8391 WOTS+"
+
+[dependencies]
+rand_core = "0.10.1"
+zeroize = "1.8"
