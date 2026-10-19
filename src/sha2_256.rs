@@ -13,6 +13,8 @@ pub const VERIFYING_KEY_BYTES: usize = 2176;
 const CHAINS: usize = 67;
 const ELEMENT_BYTES: usize = 32;
 
+const BASE16_MAX: u8 = 15;
+
 /// Caller-supplied digest; transaction hashing and network binding belong to the caller.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MessageDigest([u8; DIGEST_BYTES]);
@@ -44,7 +46,41 @@ pub struct Signature([[u8; ELEMENT_BYTES]; CHAINS]);
 /// Returns 64 base-16 message digits followed by three checksum digits.
 /// Each byte contributes its high nibble first; checksum digits are most significant first.
 fn message_digits(digest: &MessageDigest) -> [u8; CHAINS] {
-    todo!()
+    // Iterate over the digest bytes in pairs
+    let mut digits = [0u8; 64];
+    let mut i = 0;
+
+    let mut checksum_base10 = 0u16;
+
+    while i < DIGEST_BYTES {
+        let high_nibble = digest.0[i] >> 4;
+        let low_nibble = digest.0[i] & 0x0f;
+
+        // Store the digits
+        digits[i * 2] = high_nibble;
+        digits[i * 2 + 1] = low_nibble;
+
+        // Compute the checksum base 10
+        checksum_base10 += (BASE16_MAX - high_nibble) as u16;
+        checksum_base10 += (BASE16_MAX - low_nibble) as u16;
+
+        i += 1;
+    }
+
+    // Compute the checksum digits
+    let checksum_high_digit = (checksum_base10 / 256) as u8;
+
+    let checksum_mid_digit = (checksum_base10 % 256 / 16) as u8;
+
+    let checksum_low_digit = (checksum_base10 % 16) as u8;
+
+    let checksum_digits: [u8; 3] = [checksum_high_digit, checksum_mid_digit, checksum_low_digit];
+
+    // Combine the digits into the result array
+    let mut result = [0u8; CHAINS];
+    result[..64].copy_from_slice(&digits);
+    result[64..].copy_from_slice(&checksum_digits);
+    result
 }
 
 impl MessageDigest {
