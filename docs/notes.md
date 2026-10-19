@@ -109,10 +109,41 @@ They must not be equal. Checking inequality catches accidental equality; the see
   * `checksum = (15 − digit[0]) + (15 − digit[1]) + ... + (15 − digit[63])`
   * 64 x 15 = 960 = 0x3c0 in hex
 
-3. 3. Starting from each x[i], perform all 15 WOTS+ chain steps to obtain its public endpoint
+```bash
+                         Secret seed S
+                               │
+          ┌────────────────────┼────────────────────┐
+          ▼                    ▼                    ▼
+ PRF(S, BE32(0))       PRF(S, BE32(1))      … PRF(S, BE32(66))
+          │                    │                    │
+          ▼                    ▼                    ▼
+         x[0]                 x[1]                 x[66]
+       32 bytes             32 bytes              32 bytes
+       SECRET               SECRET                SECRET
+```
+
+
+3. Starting from each x[i], perform all 15 WOTS+ chain steps to obtain its public endpoint
 
 ```bash
 endpoint[i] = chain_i(x[i], start=0, steps=15)
+```
+
+Each chain has 16 positions, numbered 0 through 15:
+```
+Position:       0          1          2                    15
+                │          │          │                     │
+Chain 0:       x[0] ──────> ● ───────> ● ──────> ··· ─────> endpoint[0]
+
+Chain 1:       x[1] ──────> ● ───────> ● ──────> ··· ─────> endpoint[1]
+
+Chain 2:       x[2] ──────> ● ───────> ● ──────> ··· ─────> endpoint[2]
+
+   ⋮             ⋮                                            ⋮
+
+Chain 66:     x[66] ──────> ● ───────> ● ──────> ··· ─────> endpoint[66]
+                │                                           │
+           KEEP SECRET                                   PUBLISH
 ```
 
 Here, `chain_i(value, start, steps)` means “advance this value through the specified steps of chain i, using public seed P.” The exact hash step is defined below.
@@ -121,6 +152,15 @@ Here, `chain_i(value, start, steps)` means “advance this value through the spe
 
 ```bash
 public_key = P || endpoint[0] || ... || endpoint[66]
+```
+
+```bash
+┌─────────────┬─────────────┬─────────────┬─────┬──────────────┐
+│ Public      │ endpoint[0] │ endpoint[1] │ ... │ endpoint[66] │
+│ seed P      │             │             │     │              │
+│ 32 bytes    │ 32 bytes    │ 32 bytes    │     │ 32 bytes     │
+└─────────────┴─────────────┴─────────────┴─────┴──────────────┘
+                     PUBLIC KEY
 ```
 
 Its raw size is: `32 + 67 × 32 = 2,176` bytes
