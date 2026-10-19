@@ -41,6 +41,12 @@ pub struct VerifyingKey {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signature([[u8; ELEMENT_BYTES]; CHAINS]);
 
+/// Returns 64 base-16 message digits followed by three checksum digits.
+/// Each byte contributes its high nibble first; checksum digits are most significant first.
+fn message_digits(digest: &MessageDigest) -> [u8; CHAINS] {
+    todo!()
+}
+
 impl MessageDigest {
     pub fn from_bytes(bytes: [u8; DIGEST_BYTES]) -> Self {
         Self(bytes)
@@ -176,4 +182,46 @@ pub enum KeyGenerationError<E> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum VerifyError {
     InvalidSignature,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn message_digits_reads_high_nibble_before_low_nibble() {
+        todo!()
+    }
+
+    #[test]
+    fn message_digits_preserves_message_byte_order() {
+        todo!()
+    }
+
+    #[test]
+    fn message_digits_for_zero_bytes_has_checksum_three_twelve_zero() {
+        let digest = MessageDigest::from_bytes([0; DIGEST_BYTES]);
+        let digits = message_digits(&digest);
+        
+        // 960 = 0x3c0 in hex
+        // checksum = 3, 12, 0
+        let mut expected = [0u8; 67];
+        expected[64..].copy_from_slice(&[3, 12, 0]);
+        assert_eq!(digits, expected);
+    }
+
+    #[test]
+    fn message_digits_for_maximum_bytes_has_zero_checksum() {
+        todo!()
+    }
+
+    #[test]
+    fn message_digits_for_repeated_one_nibbles_has_checksum_three_eight_zero() {
+        todo!()
+    }
+
+    #[test]
+    fn message_digits_for_alternating_zero_and_fifteen_has_checksum_one_fourteen_zero() {
+        todo!()
+    }
 }
