@@ -227,7 +227,17 @@ mod tests {
 
     #[test]
     fn message_digits_for_repeated_one_nibbles_has_checksum_three_eight_zero() {
-        todo!()
+        let mut all_one = [0; DIGEST_BYTES];
+        all_one.fill(0x1);
+        let digest: MessageDigest = MessageDigest::from_bytes(all_one);
+        let digits = message_digits(&digest);
+        
+        // 64 * (15 - 1) = 944
+        // 944 = 0x3b0 in hex
+        // checksum = 3, 8, 0
+        let mut expected = [1u8; 67];
+        expected[64..].copy_from_slice(&[3, 8, 0]);
+        assert_eq!(digits, expected);
     }
 
     #[test]
