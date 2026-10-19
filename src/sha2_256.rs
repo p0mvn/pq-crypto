@@ -119,7 +119,20 @@ fn hash_address(
         return Err(AddressError::InvalidHashStep);
     }
 
-    todo!()
+    //  bytes:  0................19 | 20..24 | 24..28 | 28..32
+    //            fixed zero fields |  chain |  step  | selector
+    let mut address = [0u8; 32];
+
+    let selector_value: u32 = match selector {
+        KeyOrMaskSelector::Key => 0,
+        KeyOrMaskSelector::Mask => 1,
+    };
+
+    address[20..24].copy_from_slice(&chain_index.to_be_bytes());
+    address[24..28].copy_from_slice(&hash_step.to_be_bytes());
+    address[28..32].copy_from_slice(&selector_value.to_be_bytes());
+
+    Ok(address)
 }
 
 impl MessageDigest {
