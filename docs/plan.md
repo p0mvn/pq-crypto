@@ -1,7 +1,8 @@
 # Crate plan and proposed API contracts
 
 Status: documentation and API boilerplate. `src/sha2_256.rs` contains public
-types and signatures, with every function body left as `todo!()`. Rust blocks
+types and signatures. Digest and public-seed value helpers are implemented and
+tested; the remaining function bodies are `todo!()`. Rust blocks
 below remain design sketches. The scaffold uses infallible fixed-array
 constructors and fallible `TryFrom<&[u8]>` parsing instead of the slice-based
 constructors shown below. No cryptographic behavior is implemented.
@@ -14,7 +15,8 @@ base 16, and 67 chains. The first implementation will retain the full public
 key so each chain's role is easy to follow.
 
 The current scope includes the documentation, Cargo manifest, and public API
-stubs. It excludes function implementation, executable examples, cryptographic
+stubs, plus digest and public-seed value helpers. It excludes cryptographic
+function implementation, executable examples, cryptographic
 tests, a reference harness, and CI workflows.
 
 The later library will sign exactly one caller-supplied 32-byte value per key.

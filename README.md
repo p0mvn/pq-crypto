@@ -7,7 +7,8 @@ purpose is to support a Zakura custom-network experiment, followed by wallet
 integration in Vizor.
 
 The current deliverable is documentation and an API-only Cargo scaffold in
-`src/sha2_256.rs`. Every function body is `todo!()` and panics when called.
+`src/sha2_256.rs`. Digest and public-seed value helpers are implemented and tested;
+the remaining function bodies are `todo!()` and panic when called.
 There is no cryptographic implementation, executable example, or cryptographic
 test suite. Function implementation will be requested separately.
 

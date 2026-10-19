@@ -43,11 +43,11 @@ pub struct Signature([[u8; ELEMENT_BYTES]; CHAINS]);
 
 impl MessageDigest {
     pub fn from_bytes(bytes: [u8; DIGEST_BYTES]) -> Self {
-        todo!()
+        Self(bytes)
     }
 
     pub fn as_bytes(&self) -> &[u8; DIGEST_BYTES] {
-        todo!()
+        &self.0
     }
 }
 
@@ -55,17 +55,21 @@ impl TryFrom<&[u8]> for MessageDigest {
     type Error = DecodeError;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        todo!()
+        let bytes = bytes.try_into().map_err(|_| DecodeError {
+            expected: DIGEST_BYTES,
+            actual: bytes.len(),
+        })?;
+        Ok(Self(bytes))
     }
 }
 
 impl PublicSeed {
     pub fn from_bytes(bytes: [u8; ELEMENT_BYTES]) -> Self {
-        todo!()
+        Self(bytes)
     }
 
     pub fn as_bytes(&self) -> &[u8; ELEMENT_BYTES] {
-        todo!()
+        &self.0
     }
 }
 

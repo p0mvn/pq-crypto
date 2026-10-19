@@ -1,6 +1,6 @@
 //! API scaffold for standalone RFC 8391 WOTS+.
 //!
-//! All functions are unimplemented and panic when called.
+//! Digest and public-seed value helpers are implemented; other functions panic.
 //! This crate cannot generate keys, sign, parse, or verify yet.
 
 #![forbid(unsafe_code)]
