@@ -242,6 +242,23 @@ mod tests {
 
     #[test]
     fn message_digits_for_alternating_zero_and_fifteen_has_checksum_one_fourteen_zero() {
-        todo!()
+        let mut alternating = [0; DIGEST_BYTES];
+        for i in 0..DIGEST_BYTES {
+            alternating[i] = if i % 2 == 0 { 0x0 } else { 0xf };
+        }
+        let digest: MessageDigest = MessageDigest::from_bytes(alternating);
+        let digits = message_digits(&digest);
+        
+        // Message digits alternate between 0 and 15.
+        // 32 * ((15 - 0) + (15 - 15)) = 480 = 0x1e0.
+        let mut expected = [0u8; 67];
+
+        for pair in expected[..64].chunks_exact_mut(2) {
+            pair.copy_from_slice(&[0, 15]);
+        }
+
+        expected[64..].copy_from_slice(&[1, 14, 0]);
+
+        assert_eq!(digits, expected);   
     }
 }
