@@ -202,7 +202,7 @@ mod tests {
     fn message_digits_for_zero_bytes_has_checksum_three_twelve_zero() {
         let digest = MessageDigest::from_bytes([0; DIGEST_BYTES]);
         let digits = message_digits(&digest);
-        
+
         // 64 * (15 - 0) = 960
         // 960 = 0x3c0 in hex
         // checksum = 3, 12, 0
@@ -217,7 +217,7 @@ mod tests {
         max_digest.fill(0xff);
         let digest: MessageDigest = MessageDigest::from_bytes(max_digest);
         let digits = message_digits(&digest);
-        
+
         // 64 * (15 - 15) = 0
         // checksum = 0, 0, 0
         let mut expected = [15u8; 67];
@@ -227,13 +227,12 @@ mod tests {
 
     #[test]
     fn message_digits_for_repeated_one_nibbles_has_checksum_three_eight_zero() {
-        let mut all_one = [0; DIGEST_BYTES];
-        all_one.fill(0x1);
+        let all_one = [0x11; DIGEST_BYTES];
         let digest: MessageDigest = MessageDigest::from_bytes(all_one);
         let digits = message_digits(&digest);
-        
-        // 64 * (15 - 1) = 944
-        // 944 = 0x3b0 in hex
+
+        // 64 * (15 - 1) = 896
+        // 896 = 0x380 in hex
         // checksum = 3, 8, 0
         let mut expected = [1u8; 67];
         expected[64..].copy_from_slice(&[3, 8, 0]);
@@ -242,13 +241,10 @@ mod tests {
 
     #[test]
     fn message_digits_for_alternating_zero_and_fifteen_has_checksum_one_fourteen_zero() {
-        let mut alternating = [0; DIGEST_BYTES];
-        for i in 0..DIGEST_BYTES {
-            alternating[i] = if i % 2 == 0 { 0x0 } else { 0xf };
-        }
+        let alternating = [0x0f; DIGEST_BYTES];
         let digest: MessageDigest = MessageDigest::from_bytes(alternating);
         let digits = message_digits(&digest);
-        
+
         // Message digits alternate between 0 and 15.
         // 32 * ((15 - 0) + (15 - 15)) = 480 = 0x1e0.
         let mut expected = [0u8; 67];
@@ -259,6 +255,6 @@ mod tests {
 
         expected[64..].copy_from_slice(&[1, 14, 0]);
 
-        assert_eq!(digits, expected);   
+        assert_eq!(digits, expected);
     }
 }
