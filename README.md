@@ -41,9 +41,9 @@ without algorithm identifiers or RFC Appendix A envelopes.
 ## Using the API
 
 The crate requires Rust 1.97 or later; the repository pins 1.97.1. The package
-name is `wots-plus`; Rust code imports it as `wots_plus`. It is currently
-unpublished, so use a local path dependency when calling it from another crate.
-The snippets below use `sha2` 0.11 and `getrandom` 0.4 with its `sys_rng` feature,
+name is `wots-plus`; Rust code imports it as `wots_plus`. Add it with
+`cargo add wots-plus@0.1.0-rc1`; release candidates are only selected when the
+version is named. The snippets below use `sha2` 0.11 and `getrandom` 0.4 with its `sys_rng` feature,
 which are already configured in this repository.
 
 Generate a signing key and save its public key:
