@@ -3,8 +3,9 @@
 use rand_core::TryCryptoRng;
 use zeroize::Zeroizing;
 
+use crate::chain::chain;
 use crate::hash::prf;
-use crate::params::{CHAINS, ELEMENT_BYTES};
+use crate::params::{BASE16_MAX, CHAINS, ELEMENT_BYTES};
 use crate::signature::{MessageDigest, Signature};
 
 /// Public seed; constructing this value does not establish its entropy.
@@ -95,8 +96,25 @@ impl SigningKey {
         })
     }
 
+    /// Computes all 67 public endpoints without consuming the one-time signing key.
     pub fn verifying_key(&self) -> VerifyingKey {
-        todo!()
+        let endpoints = std::array::from_fn(|index| {
+            let start = derive_chain_start(&self.secret_seed, index as u32)
+                .expect("endpoint array indices are valid chain indices");
+            chain(
+                &start,
+                &self.public_seed,
+                index as u32,
+                0,
+                BASE16_MAX as u32,
+            )
+            .expect("a full walk from position zero is valid")
+        });
+
+        VerifyingKey {
+            public_seed: self.public_seed.clone(),
+            endpoints,
+        }
     }
 
     /// Consumes this key for one signature. Retain the signature for retries.
@@ -124,6 +142,55 @@ pub enum KeyGenerationError<E> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn verifying_key_matches_independently_generated_endpoints() {
+        // Locally generated from RFC 8391 sections 3.1.2, 3.1.4, 3.1.7, and 5.1;
+        // not RFC-published vectors or C-reference outputs. Public test seeds:
+        // secret = 00..1f, public = 1f..00. Each line is an endpoint in chain order.
+        // Reproduce: python3 scripts/derive_verifying_key_vectors.py --check
+        let secret_bytes = std::array::from_fn(|i| i as u8);
+        let public_bytes = std::array::from_fn(|i| (31 - i) as u8);
+        let key = SigningKey::from_seeds(
+            SecretSeed::from_bytes(secret_bytes),
+            PublicSeed::from_bytes(public_bytes),
+        )
+        .unwrap();
+
+        let actual = key.verifying_key();
+        let expected: Vec<_> = include_str!("../tests/data/verifying_key_endpoints.hex")
+            .lines()
+            .collect();
+        assert_eq!(expected.len(), 67);
+        for (index, endpoint) in actual.endpoints.iter().enumerate() {
+            let hex: String = endpoint.iter().map(|byte| format!("{byte:02x}")).collect();
+            assert_eq!(hex, expected[index], "chain index={index}");
+        }
+        assert_eq!(actual.public_seed.as_bytes(), &public_bytes);
+        assert_eq!(key.verifying_key(), actual);
+        assert_eq!(*key.secret_seed.0, secret_bytes);
+        assert_eq!(key.public_seed.as_bytes(), &public_bytes);
+    }
+
+    #[test]
+    fn changing_either_seed_changes_the_public_endpoints() {
+        let make_key = |secret, public| {
+            SigningKey::from_seeds(
+                SecretSeed::from_bytes(secret),
+                PublicSeed::from_bytes(public),
+            )
+            .unwrap()
+            .verifying_key()
+        };
+        let baseline = make_key([0x42; 32], [0xa5; 32]);
+        let changed_secret = make_key([0x43; 32], [0xa5; 32]);
+        let changed_public = make_key([0x42; 32], [0xa4; 32]);
+
+        for index in 0..67 {
+            assert_ne!(baseline.endpoints[index], changed_secret.endpoints[index]);
+            assert_ne!(baseline.endpoints[index], changed_public.endpoints[index]);
+        }
+    }
 
     #[test]
     fn signing_key_rejects_equal_seeds() {
