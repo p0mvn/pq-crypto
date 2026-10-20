@@ -6,11 +6,31 @@ Winternitz one-time signature construction described in
 purpose is to support a Zakura custom-network experiment, followed by wallet
 integration in Vizor.
 
-The current deliverable is documentation and an API-only Cargo scaffold in
-`src/sha2_256.rs`. Digest and public-seed value helpers are implemented and tested;
-the remaining function bodies are `todo!()` and panic when called.
-There is no cryptographic implementation, executable example, or cryptographic
-test suite. Function implementation will be requested separately.
+The crate exposes WOTS+ keys, signatures, and message digests at its root.
+Digest and public-seed value helpers, message digits and checksum, address
+encoding, and the SHA-256 `F` and `PRF` helpers are implemented and tested.
+Chain traversal, key generation, signing, verification, and key/signature
+encoding remain `todo!()` stubs that panic when called.
+
+## Code layout
+
+- `src/key.rs`: seeds, signing keys, verifying keys, and key errors.
+- `src/signature.rs`: message digests, signatures, and verification.
+- `src/encoding.rs`: raw byte conversions and decoding errors.
+- `src/params.rs`: the fixed 32-byte, base-16 profile parameters.
+- `src/digits.rs`: message digits and checksum.
+- `src/address.rs`: standalone WOTS+ address encoding.
+- `src/chain.rs`: the bounded chain traversal stub.
+- `src/hash/`: internal hash operations, currently implemented with SHA-256.
+
+```rust
+use wots::{MessageDigest, PublicSeed, SecretSeed, Signature, SigningKey, VerifyingKey};
+```
+
+WOTS+ operations depend on the internal `hash` module. Only its SHA-256
+implementation imports `sha2`; future hash profiles can be introduced at
+that boundary. The current API and encodings still select the fixed
+`WOTSP-SHA2_256` profile; callers cannot select a different hash yet.
 
 ## Start here
 
@@ -60,8 +80,8 @@ does not create a new signature.
 | Stage | Deliverable | Current status |
 | --- | --- | --- |
 | Foundation | Walkthrough, design, API contracts, and test plan | Documented |
-| Message representation | Base-16 digits and checksum | Planned |
-| WOTS+ hashing | Context encoding and chain operations | Planned |
+| Message representation | Base-16 digits and checksum | Implemented and tested |
+| WOTS+ hashing | Context encoding and chain operations | Address encoding, F, and PRF implemented and tested; traversal is a stub |
 | Keys | Secret expansion and endpoint generation | Planned |
 | Signatures | Consuming signing and verification | Planned |
 | Qualification | Parsing, independent vectors, example, and review | Planned |
@@ -71,7 +91,7 @@ and explained one at a time, rather than as an unattended batch.
 
 ## Boundaries
 
-This phase includes the documents and an unimplemented crate scaffold.
+The current crate includes documentation, a partial implementation, and API stubs.
 Compact-key compression, Merkle trees,
 wallet derivation, durable signing state, transaction hashing, Zakura opcodes,
 network deployment, Vizor changes, and PIR changes are outside this phase.

@@ -1,4 +1,4 @@
-use wots::sha2_256::{DIGEST_BYTES, DecodeError, MessageDigest, PublicSeed};
+use wots::{DIGEST_BYTES, DecodeError, MessageDigest, PublicSeed};
 
 #[test]
 fn digest_preserves_supplied_bytes() {

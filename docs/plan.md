@@ -1,11 +1,18 @@
 # Crate plan and proposed API contracts
 
-Status: documentation and API boilerplate. `src/sha2_256.rs` contains public
-types and signatures. Digest and public-seed value helpers are implemented and
-tested; the remaining function bodies are `todo!()`. Rust blocks
-below remain design sketches. The scaffold uses infallible fixed-array
-constructors and fallible `TryFrom<&[u8]>` parsing instead of the slice-based
-constructors shown below. No cryptographic behavior is implemented.
+Status: partial implementation with public API stubs. Public types are exported
+from `src/lib.rs`; WOTS+ keys and signatures live in `src/key.rs` and
+`src/signature.rs`, and raw byte conversions live in `src/encoding.rs`.
+Digest and public-seed value helpers, message digits and checksum, address
+encoding, and SHA-256 `F` and `PRF` helpers are implemented and tested.
+Chain traversal and the remaining key, signature, and encoding operations
+are `todo!()` stubs. Rust blocks below remain design sketches. The scaffold
+uses infallible fixed-array constructors and fallible `TryFrom<&[u8]>` parsing
+instead of the slice-based constructors shown below.
+
+The internal `src/hash/mod.rs` boundary selects `src/hash/sha2_256.rs`.
+WOTS+ primitives are separate from that concrete hash implementation. Profile
+parameters remain fixed; generic profiles and additional hashes are deferred.
 
 ## 1. Decision and scope
 
@@ -14,10 +21,10 @@ The selected algorithm is RFC 8391 `WOTSP-SHA2_256`: SHA-256, 32-byte elements,
 base 16, and 67 chains. The first implementation will retain the full public
 key so each chain's role is easy to follow.
 
-The current scope includes the documentation, Cargo manifest, and public API
-stubs, plus digest and public-seed value helpers. It excludes cryptographic
-function implementation, executable examples, cryptographic
-tests, a reference harness, and CI workflows.
+The current scope includes documentation, the Cargo manifest, public API
+stubs, and the implemented helpers listed above. Key generation, signing,
+verification, executable examples, a reference harness, and CI workflows
+remain future work.
 
 The later library will sign exactly one caller-supplied 32-byte value per key.
 It will not compute transaction digests or decide network binding. It is a
@@ -337,8 +344,10 @@ downloaded, modified, or executed during this documentation phase.
 
 ## 6. Guided implementation plan for later
 
-Each checkpoint below is future work. Explain its construction before writing
-it, inspect the small change, and validate the behavior before moving on.
+Message digits, address encoding, and the hash helpers are implemented; chain
+traversal and later checkpoints remain unfinished. Explain each remaining
+construction before writing it, inspect the small change, and validate the
+behavior before moving on.
 Roman requests the next step separately; this document does not start it.
 
 | Checkpoint | Implementation goal | Acceptance evidence |
@@ -350,11 +359,8 @@ Roman requests the next step separately; this document does not start it.
 | Public API completion | Fixed encodings and a minimal public-data example | Exact bytes round-trip; malformed lengths fail; consuming API fails to compile when reused |
 | Review | Check construction, secret handling, parser bounds, and reference provenance | Focused suite passes and an independent reviewer assesses the exact implementation |
 
-The first coding checkpoint will introduce only the scaffold needed for message
-digits and checksum work. Add public APIs with their implementation rather than
-creating a suite of unused method stubs. Dependency pins and compiler support
-will be recorded with that scaffold and checked against actual dependencies.
-No crate publication is part of this plan.
+The existing scaffold includes the public API stubs. Implement the remaining
+checkpoints one at a time. No crate publication is part of this plan.
 
 ### Test scenarios to implement later
 
