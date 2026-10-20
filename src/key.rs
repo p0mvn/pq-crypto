@@ -4,6 +4,7 @@ use rand_core::TryCryptoRng;
 use zeroize::Zeroizing;
 
 use crate::chain::chain;
+use crate::digits::message_digits;
 use crate::hash::prf;
 use crate::params::{BASE16_MAX, CHAINS, ELEMENT_BYTES};
 use crate::signature::{MessageDigest, Signature};
@@ -118,8 +119,35 @@ impl SigningKey {
     }
 
     /// Consumes this key for one signature. Retain the signature for retries.
+    ///
+    /// ```compile_fail,E0382
+    /// use wots::{MessageDigest, SigningKey};
+    ///
+    /// fn sign_twice(key: SigningKey, digest: &MessageDigest) {
+    ///     let _first = key.sign_digest(digest);
+    ///     let _second = key.sign_digest(digest); // The first call moved key.
+    /// }
+    /// ```
     pub fn sign_digest(self, digest: &MessageDigest) -> Signature {
-        todo!()
+        // Message digits determine how long to walk for each chain
+        let digits = message_digits(digest);
+
+        let mut signature = [0u8; CHAINS * ELEMENT_BYTES];
+        for i in 0..CHAINS {
+            let chain_start = derive_chain_start(&self.secret_seed, i as u32)
+                .expect("endpoint array indices are valid chain indices");
+            let chain_value = chain(
+                &chain_start,
+                &self.public_seed,
+                i as u32,
+                0,
+                digits[i] as u32,
+            )
+            .expect("message and checksum digits are valid chain step counts");
+            signature[i * ELEMENT_BYTES..(i + 1) * ELEMENT_BYTES].copy_from_slice(&chain_value);
+        }
+
+        Signature::from_bytes(&signature)
     }
 }
 impl VerifyingKey {
@@ -142,6 +170,189 @@ pub enum KeyGenerationError<E> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn signing_test_key() -> SigningKey {
+        // Public test seeds only; recreating a real key for multiple digests is unsafe.
+        SigningKey::from_seeds(
+            SecretSeed::from_bytes(std::array::from_fn(|i| i as u8)),
+            PublicSeed::from_bytes(std::array::from_fn(|i| (31 - i) as u8)),
+        )
+        .unwrap()
+    }
+
+    fn signature_reconstructs_key(
+        digest: &MessageDigest,
+        signature: &Signature,
+        expected: &VerifyingKey,
+    ) -> bool {
+        let digits = message_digits(digest);
+        signature
+            .to_bytes()
+            .chunks_exact(32)
+            .enumerate()
+            .all(|(index, bytes)| {
+                let element: &[u8; 32] = bytes.try_into().unwrap();
+                chain(
+                    element,
+                    &expected.public_seed,
+                    index as u32,
+                    digits[index] as u32,
+                    15 - digits[index] as u32,
+                )
+                .unwrap()
+                    == expected.endpoints[index]
+            })
+    }
+
+    #[test]
+    fn signing_matches_all_elements_of_independent_full_signature_vectors() {
+        // RFC-derived, not RFC-published or C-reference vectors. Generator uses
+        // independent Python formulas with every hash cross-checked by OpenSSL.
+        // Reproduce: python3 scripts/derive_signature_vectors.py --check
+        let cases = [
+            ([0; 32], include_str!("../tests/data/signature_zero.hex")),
+            (
+                [0xff; 32],
+                include_str!("../tests/data/signature_maximum.hex"),
+            ),
+            (
+                std::array::from_fn(|i| i as u8),
+                include_str!("../tests/data/signature_patterned.hex"),
+            ),
+        ];
+        for (digest_bytes, fixture) in cases {
+            let key = signing_test_key();
+            let expected_key = key.verifying_key();
+            let digest = MessageDigest::from_bytes(digest_bytes);
+            let signature = key.sign_digest(&digest);
+            let expected: Vec<_> = fixture.lines().collect();
+            assert_eq!(expected.len(), 67);
+            for (index, element) in signature.to_bytes().chunks_exact(32).enumerate() {
+                let hex: String = element.iter().map(|byte| format!("{byte:02x}")).collect();
+                assert_eq!(
+                    hex, expected[index],
+                    "chain={index}, digest={digest_bytes:02x?}"
+                );
+            }
+            assert!(signature_reconstructs_key(
+                &digest,
+                &signature,
+                &expected_key
+            ));
+        }
+    }
+
+    #[test]
+    fn zero_and_fifteen_digits_reveal_chain_starts_and_endpoints() {
+        let zero_signature = signing_test_key()
+            .sign_digest(&MessageDigest::from_bytes([0; 32]))
+            .to_bytes();
+        let maximum_signature = signing_test_key()
+            .sign_digest(&MessageDigest::from_bytes([0xff; 32]))
+            .to_bytes();
+        let key = signing_test_key();
+        let expected_key = key.verifying_key();
+
+        // All 64 message digits are zero or fifteen respectively.
+        // Zero digest checksum = 0x3c0; maximum digest checksum = 0x000.
+        for index in 0..67 {
+            let start = derive_chain_start(&key.secret_seed, index as u32).unwrap();
+            let range = index * 32..(index + 1) * 32;
+            if index < 64 || index == 66 {
+                assert_eq!(&zero_signature[range.clone()], start.as_slice());
+            }
+            if index < 64 {
+                assert_eq!(&maximum_signature[range], &expected_key.endpoints[index]);
+            } else {
+                assert_eq!(&maximum_signature[range], start.as_slice());
+            }
+        }
+    }
+
+    #[test]
+    fn changing_any_digest_byte_prevents_endpoint_reconstruction() {
+        let key = signing_test_key();
+        let expected = key.verifying_key();
+        let digest_bytes = std::array::from_fn(|i| i as u8);
+        let signature = key.sign_digest(&MessageDigest::from_bytes(digest_bytes));
+
+        for index in 0..32 {
+            let mut changed = digest_bytes;
+            changed[index] ^= 1;
+            assert!(
+                !signature_reconstructs_key(
+                    &MessageDigest::from_bytes(changed),
+                    &signature,
+                    &expected
+                ),
+                "modified digest byte={index}",
+            );
+        }
+    }
+
+    #[test]
+    fn changing_any_signature_byte_prevents_its_chain_reaching_the_endpoint() {
+        let key = signing_test_key();
+        let expected = key.verifying_key();
+        let digest = MessageDigest::from_bytes(std::array::from_fn(|i| i as u8));
+        let digits = message_digits(&digest);
+        let signature = key.sign_digest(&digest).to_bytes();
+
+        // Every byte in every element, including all three checksum chains.
+        for index in 0..67 {
+            let original: [u8; 32] = signature[index * 32..(index + 1) * 32].try_into().unwrap();
+            for offset in 0..32 {
+                let mut changed = original;
+                changed[offset] ^= 1;
+                let endpoint = chain(
+                    &changed,
+                    &expected.public_seed,
+                    index as u32,
+                    digits[index] as u32,
+                    15 - digits[index] as u32,
+                )
+                .unwrap();
+                assert_ne!(
+                    endpoint, expected.endpoints[index],
+                    "chain={index}, byte={offset}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn wrong_key_or_reordered_signature_elements_prevent_reconstruction() {
+        let key = signing_test_key();
+        let expected = key.verifying_key();
+        let digest = MessageDigest::from_bytes([0xa7; 32]);
+        let signature = key.sign_digest(&digest);
+
+        let mut wrong_public_seed = expected.clone();
+        wrong_public_seed.public_seed.0[0] ^= 1;
+        assert!(!signature_reconstructs_key(
+            &digest,
+            &signature,
+            &wrong_public_seed
+        ));
+
+        let other_key = SigningKey::from_seeds(
+            SecretSeed::from_bytes([0x42; 32]),
+            expected.public_seed.clone(),
+        )
+        .unwrap()
+        .verifying_key();
+        assert!(!signature_reconstructs_key(&digest, &signature, &other_key));
+
+        let mut reordered = signature.to_bytes();
+        for offset in 0..32 {
+            reordered.swap(offset, 32 + offset);
+        }
+        assert!(!signature_reconstructs_key(
+            &digest,
+            &Signature::from_bytes(&reordered),
+            &expected,
+        ));
+    }
 
     #[test]
     fn verifying_key_matches_independently_generated_endpoints() {

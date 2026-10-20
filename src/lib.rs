@@ -1,9 +1,9 @@
 //! Standalone RFC 8391 WOTS+ with a fixed SHA-256, 32-byte, base-16 profile.
 //!
 //! Value helpers, message digits, address encoding, hash helpers, chain traversal,
-//! seed expansion, and public endpoint generation from supplied seeds are implemented.
-//! Random key generation, signing, verification, key/signature encoding, and the
-//! verifying-key public-seed accessor remain stubs.
+//! seed expansion, public endpoint generation, signing, and fixed-array signature
+//! encoding are implemented. Random key generation, verification, key encoding,
+//! signature slice parsing, and the verifying-key public-seed accessor remain stubs.
 
 #![forbid(unsafe_code)]
 

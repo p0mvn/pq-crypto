@@ -1,7 +1,7 @@
 //! Raw library payloads; these are not RFC Appendix A envelopes.
 
 use crate::key::VerifyingKey;
-use crate::params::{DIGEST_BYTES, SIGNATURE_BYTES, VERIFYING_KEY_BYTES};
+use crate::params::{DIGEST_BYTES, VERIFYING_KEY_BYTES};
 use crate::signature::{MessageDigest, Signature};
 
 impl TryFrom<&[u8]> for MessageDigest {
@@ -32,17 +32,6 @@ impl TryFrom<&[u8]> for VerifyingKey {
 
     /// Rejects truncation and trailing bytes.
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        todo!()
-    }
-}
-
-impl Signature {
-    /// Reads 67 signature elements in chain order.
-    pub fn from_bytes(bytes: &[u8; SIGNATURE_BYTES]) -> Self {
-        todo!()
-    }
-
-    pub fn to_bytes(&self) -> [u8; SIGNATURE_BYTES] {
         todo!()
     }
 }

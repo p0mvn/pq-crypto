@@ -1,4 +1,4 @@
-use wots::{DIGEST_BYTES, DecodeError, MessageDigest, PublicSeed};
+use wots::{DIGEST_BYTES, DecodeError, MessageDigest, PublicSeed, SIGNATURE_BYTES, Signature};
 
 #[test]
 fn digest_preserves_supplied_bytes() {
@@ -47,5 +47,24 @@ fn public_seed_preserves_supplied_bytes() {
     for bytes in [[0; 32], [0xff; 32], std::array::from_fn(|i| i as u8)] {
         let seed = PublicSeed::from_bytes(bytes);
         assert_eq!(seed.as_bytes(), &bytes);
+    }
+}
+
+#[test]
+fn signature_bytes_round_trip_and_own_their_copies() {
+    for mut bytes in [
+        [0; SIGNATURE_BYTES],
+        [0xff; SIGNATURE_BYTES],
+        std::array::from_fn(|i| ((i / 32) * 3 + i % 32) as u8),
+    ] {
+        let expected = bytes;
+        let signature = Signature::from_bytes(&bytes);
+        bytes.fill(0xa5);
+
+        let mut encoded = signature.to_bytes();
+        assert_eq!(encoded, expected);
+        assert_eq!(Signature::from_bytes(&encoded), signature);
+        encoded.fill(0x5a);
+        assert_eq!(signature.to_bytes(), expected);
     }
 }
