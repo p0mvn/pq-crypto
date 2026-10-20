@@ -69,7 +69,7 @@ impl PublicSeed {
 impl SecretSeed {
     /// Imports fresh secret material; the caller must prevent reuse across keys.
     pub fn from_bytes(bytes: [u8; ELEMENT_BYTES]) -> Self {
-        todo!()
+        Self(Zeroizing::new(bytes))
     }
 }
 
@@ -247,8 +247,7 @@ mod tests {
         ];
 
         for (seed_bytes, index, expected) in cases {
-            // Construct storage directly while SecretSeed::from_bytes is a stub.
-            let seed = SecretSeed(Zeroizing::new(seed_bytes));
+            let seed = SecretSeed::from_bytes(seed_bytes);
             let actual: Zeroizing<[u8; ELEMENT_BYTES]> = derive_chain_start(&seed, index).unwrap();
             assert_eq!(
                 *actual, expected,
@@ -260,7 +259,7 @@ mod tests {
 
     #[test]
     fn secret_expansion_accepts_every_chain_in_the_fixed_profile() {
-        let seed = SecretSeed(Zeroizing::new([0x42; ELEMENT_BYTES]));
+        let seed = SecretSeed::from_bytes([0x42; ELEMENT_BYTES]);
 
         for index in 0..67 {
             assert!(
@@ -272,7 +271,7 @@ mod tests {
 
     #[test]
     fn secret_expansion_rejects_indices_beyond_the_last_chain() {
-        let seed = SecretSeed(Zeroizing::new([0x42; ELEMENT_BYTES]));
+        let seed = SecretSeed::from_bytes([0x42; ELEMENT_BYTES]);
 
         for index in [67, 68, 256, u32::MAX] {
             assert_eq!(
