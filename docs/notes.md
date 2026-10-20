@@ -171,5 +171,191 @@ Keep `S` private: together with `P`, it is enough to regenerate the chains and s
 
 ### Verification
 
-TODO:
-- How exactly does XORing public inputs help increase security?
+### Why WOTS+ uses public XOR masks
+
+A public mask adds no secrecy by itself. Its role is to help construct hash
+chains whose security can be related to specific hard hash problems. To see
+why, separate the operation performed by the implementation from the argument
+used in the proof.
+
+#### 1. What the mask does, and why XOR is useful
+
+One WOTS+ chain step has the form:
+
+```text
+next = F(key, current XOR mask)
+```
+
+The key and mask for this step are public. The current chain value may still
+be secret; signing reveals selected intermediate values. Anyone who knows a
+current value can advance the chain.
+
+XOR flips the bits selected by the mask. For a four-bit illustration:
+
+```text
+current:  0 1 1 0
+mask:     0 0 1 1
+          -------
+input:    0 1 0 1
+```
+
+Applying the same mask again recovers the current value. XOR is reversible;
+the one-way computation is `F`.
+
+The useful property for the proof is that, for any known chain value `a` and
+any desired hash input `t`, we can choose a mask that connects them:
+
+```text
+mask = a XOR t
+
+a XOR mask = a XOR (a XOR t) = t
+```
+
+Thus, the mask is an adjustable offset between a chain value and the next hash
+input. Public XOR does not automatically strengthen an arbitrary hash
+construction. The benefit here is that this adjustment supports the WOTS+
+security argument.
+
+#### 2. How that adjustment helps the proof
+
+The proof constructs an algorithm that uses a hypothetical signature forger
+to solve a hash challenge. This is called a reduction: success at one task is
+turned into success at another.
+
+Consider the second-preimage part of the argument. A challenger supplies a
+random target `t` and a function key. Our task is to find a different `t'`:
+
+```text
+t' != t
+F(key, t') = F(key, t)
+```
+
+The target is supplied to us. We cannot replace it with a more convenient
+value.
+
+Suppose a chain has reached `a`. Without a mask, finding a different
+predecessor `b` with `F(key, b) = F(key, a)` would concern `a`, not necessarily
+our target `t`. That would not directly solve the challenge.
+
+With a mask, we can arrange that this step hashes the target itself:
+
+```text
+mask = a XOR t
+next = F(key, a XOR mask) = F(key, t)
+```
+
+For example:
+
+```text
+a:        0 1 1 0
+t:        1 0 1 0
+          ------- XOR
+mask:     1 1 0 0
+
+a XOR mask = 1 0 1 0 = t
+```
+
+Now suppose a forged path first merges into the genuine path at this step,
+coming from a different predecessor `b`:
+
+```text
+genuine: a -- XOR mask --> t  -- F(key, ...) --> next
+forged:  b -- XOR mask --> t' -- F(key, ...) --> next
+```
+
+We can extract an answer to the challenge:
+
+```text
+t' = b XOR mask
+```
+
+Both paths reach `next`, so their hash outputs match. Since `b != a`, XOR with
+the same mask also gives `t' != t`.
+
+For a concrete continuation, suppose the forger supplies `b = 0011`:
+
+```text
+t' = 0011 XOR 1100 = 1111
+```
+
+We do not claim that `F(key, 1111)` actually equals `F(key, 1010)`. The argument
+is conditional: **if** this `b` makes the forged path merge at the selected
+step, **then** that equality holds and `1111` solves our challenge.
+
+Choosing the mask does not make the forger succeed. It makes a suitable
+successful forgery useful to the algorithm in the proof.
+
+#### 3. What the complete proof must establish
+
+The example above explains the extraction mechanism, but is not a complete
+security proof. Three further connections are needed.
+
+First, the checksum ensures that signing a different digest requires at least
+one chain digit to decrease. Merely advancing all the values revealed by the
+original signature cannot accomplish that. A forgery must supply a value at
+an earlier position in at least one chain, while still reaching its expected
+public endpoint.
+
+Second, such a value might recover an earlier part of the genuine chain, or
+follow a different path that merges later. The proof handles the former using
+a one-wayness challenge and the latter using a second-preimage challenge.
+It guesses relevant chain positions and accounts for the probability that its
+guesses make the forgery useful.
+
+Third, the constructed public key must not make the forger's success rate
+collapse. A forger promised to work on normally generated keys need not work
+on an obviously artificial key. The original WOTS+ proof bounds this change
+using an additional function-family assumption called undetectability.
+The XOR identity alone does not establish this distribution argument.
+
+These steps are developed in the [original WOTS+ paper, section 3.2 and
+Algorithm 1](https://huelsing.files.wordpress.com/2013/05/wotsspr.pdf).
+
+#### 4. Assumptions, logical flow, and conclusion
+
+The original proof uses three properties of its hash-function family:
+
+- **One-wayness:** given the hash of a random input, finding an input with that
+  output is hard, even with the function key known.
+- **Second-preimage resistance:** given a random input, finding a different
+  input with the same output is hard, even with the function key known.
+- **Undetectability:** with the function key known, the output on a uniformly
+  random input is computationally indistinguishable from a uniformly random
+  string. This supports the proof's changes to the simulated key.
+
+The argument has this direction:
+
+```text
+Assume an efficient forger succeeds often on normal keys.
+    |
+Construct a hash-challenge solver that runs the forger.
+    |
+Show the simulated setup preserves enough of its success probability.
+    |
+Show a useful successful forgery yields a hash-challenge solution.
+    |
+Account for guessing losses and the solver's running time.
+    |
+The solver would violate at least one assumed hash property.
+    |
+Therefore such a successful forger cannot exist under those assumptions.
+```
+
+For illustration only, if a forger succeeded with probability 1/100 and the
+reduction retained one useful result per 1,000 successes, the resulting
+solver would succeed with probability 1/100,000. These are not the paper's
+bounds. The actual proof relates probabilities and running times explicitly.
+
+The conclusion is conditional: under its assumptions and one-time-use model,
+a computationally bounded attacker cannot forge a signature on a new message
+with significant probability after obtaining one signature of its choice.
+The mask is one ingredient that enables this connection; its being public
+does not invalidate it.
+
+Finally, distinguish the proof example from our implementation. The original
+argument manipulates explicit public randomization elements. Our RFC 8391
+implementation derives each step's key and mask from the public seed and
+address, as specified in [section 3.1.2](https://www.rfc-editor.org/rfc/rfc8391.html#section-3.1.2).
+The implementation does not choose `mask = a XOR t`. The example explains a
+mechanism in the original proof, not a complete proof of the RFC's
+seed-derived instantiation.
