@@ -14,7 +14,10 @@ impl Signature {
     /// Reads 67 signature elements in chain order; this does not verify a signature.
     pub fn from_bytes(bytes: &[u8; SIGNATURE_BYTES]) -> Self {
         let mut elements = [[0u8; ELEMENT_BYTES]; CHAINS];
-        for (element, chunk) in elements.iter_mut().zip(bytes.chunks_exact(ELEMENT_BYTES)) {
+        for (element, chunk) in elements
+            .iter_mut()
+            .zip(bytes.as_chunks::<ELEMENT_BYTES>().0.iter())
+        {
             element.copy_from_slice(chunk);
         }
         Self(elements)
@@ -23,7 +26,12 @@ impl Signature {
     /// Writes the 67 elements consecutively in chain order, without an envelope.
     pub fn to_bytes(&self) -> [u8; SIGNATURE_BYTES] {
         let mut bytes = [0u8; SIGNATURE_BYTES];
-        for (chunk, element) in bytes.chunks_exact_mut(ELEMENT_BYTES).zip(self.0.iter()) {
+        for (chunk, element) in bytes
+            .as_chunks_mut::<ELEMENT_BYTES>()
+            .0
+            .iter_mut()
+            .zip(self.0.iter())
+        {
             chunk.copy_from_slice(element);
         }
         bytes

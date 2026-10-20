@@ -1,4 +1,4 @@
-# How the proposed WOTS+ construction works
+# How the WOTS+ construction works
 
 This walkthrough describes the construction we intend to implement. It contains
 no executable signer. The simple chain illustrations explain the idea; the
@@ -99,8 +99,8 @@ For example, `0x3c0 << 4 = 0x3c00`, which yields `[3, 12, 0]`. The final low
 zero nibble is padding and is not another checksum digit.
 
 The unshifted maximum is 960 and the shifted maximum is 15,360. Both fit in a
-16-bit unsigned integer. The future implementation will use a 32-bit unsigned
-accumulator for clarity. The original RFC prose has a corrected checksum-bound
+16-bit unsigned integer, as used by the fixed-profile implementation. The
+original RFC prose has a corrected checksum-bound
 error; follow [verified erratum 6821](https://www.rfc-editor.org/errata/eid6821).
 
 ## 4. What the plus sign adds
@@ -222,7 +222,7 @@ caller must provide an already trusted verifying key. Merely reconstructing
 some endpoints from a signature does not establish who signed it.
 
 There are `67 * 32 = 2,144` bytes of signature elements. The full endpoint
-array has the same length. Adding the 32-byte public seed gives the proposed
+array has the same length. Adding the 32-byte public seed gives the
 raw verifying-key length of 2,176 bytes. No secret values belong in that public
 encoding.
 
@@ -234,7 +234,7 @@ earliest revealed positions and advance them, increasing the set of digests
 for which they may construct a signature. The one-time security argument no
 longer applies after signing two different digests with that key.
 
-The proposed Rust method consumes a signing-key object even when the caller
+The Rust method consumes a signing-key object even when the caller
 wants to sign the same digest again. Keep the resulting signature for later
 verification or rebroadcast instead. The API makes one local object harder to
 misuse; it cannot prevent a second object reconstructed from the same secret

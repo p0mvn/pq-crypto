@@ -2,10 +2,14 @@
 name = "wots"
 version = "0.0.0"
 edition = "2024"
+rust-version = "1.97"
 publish = false
-description = "API scaffold for standalone RFC 8391 WOTS+"
+description = "Standalone fixed-profile RFC 8391 WOTS+ signatures"
 
 [dependencies]
 rand_core = "0.10.1"
-sha2 = "0.11.1"
+sha2 = { version = "0.11.1", features = ["zeroize"] }
 zeroize = "1.8"
+
+[dev-dependencies]
+getrandom = { version = "0.4", features = ["sys_rng"] }

@@ -117,7 +117,7 @@ mod tests {
         // 32 * ((15 - 0) + (15 - 15)) = 480 = 0x1e0.
         let mut expected = [0u8; 67];
 
-        for pair in expected[..64].chunks_exact_mut(2) {
+        for pair in expected[..64].as_chunks_mut::<2>().0.iter_mut() {
             pair.copy_from_slice(&[0, 15]);
         }
 

@@ -12,8 +12,7 @@ pub(crate) fn f(key: &[u8; 32], input: &[u8; 32]) -> [u8; 32] {
     hasher.update(key);
     hasher.update(input);
 
-    let output = hasher.finalize().into();
-    output
+    hasher.finalize().into()
 }
 
 /// RFC 8391 section 5.1: SHA-256(toByte(3, 32) || key || input).
@@ -26,8 +25,7 @@ pub(crate) fn prf(key: &[u8; 32], input: &[u8; 32]) -> [u8; 32] {
     hasher.update(key);
     hasher.update(input);
 
-    let output = hasher.finalize().into();
-    output
+    hasher.finalize().into()
 }
 
 /// Converts a single byte to a 32-byte array.

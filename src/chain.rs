@@ -1,5 +1,7 @@
 //! Bounded WOTS+ chain traversal.
 
+use zeroize::Zeroizing;
+
 use crate::{
     address::{KeyOrMaskSelector, hash_address},
     hash::{self, prf},
@@ -9,6 +11,7 @@ use crate::{
 
 /// A chain index or traversal range lies outside the fixed standalone profile.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(clippy::enum_variant_names)] // Keep the invalid-input cases explicit at call sites.
 pub(crate) enum ChainError {
     InvalidChainIndex,
     InvalidHashStep,
@@ -47,11 +50,11 @@ pub(crate) fn chain(
     }
 
     // Validate steps
-    if steps > (BASE16_MAX as u32 - start) as u32 {
+    if steps > BASE16_MAX as u32 - start {
         return Err(ChainError::InvalidStepCount);
     }
 
-    let mut current = *input;
+    let mut current = Zeroizing::new(*input);
     for current_step_idx in start..start + steps {
         let key_address = hash_address(chain_index, current_step_idx, KeyOrMaskSelector::Key)
             .map_err(ChainError::from)?;
@@ -61,11 +64,11 @@ pub(crate) fn chain(
             .map_err(ChainError::from)?;
         let mask = prf(public_seed.as_bytes(), &mask_address);
 
-        let masked = xor_bytes(&current, &mask);
-        current = hash::f(&key, &masked);
+        let masked = Zeroizing::new(xor_bytes(&current, &mask));
+        *current = hash::f(&key, &masked);
     }
 
-    Ok(current)
+    Ok(*current)
 }
 
 fn xor_bytes(value: &[u8; 32], mask: &[u8; 32]) -> [u8; 32] {
@@ -204,7 +207,8 @@ mod tests {
         // PRF = SHA256(BE_32(3) || seed || address).
         // Next = SHA256(BE_32(0) || key || (previous XOR mask)).
         // All inputs and seeds below are public test data.
-        let cases: [([u8; 32], [u8; 32], u32, u32, u32, [u8; 32]); 12] = [
+        type Vector = ([u8; 32], [u8; 32], u32, u32, u32, [u8; 32]);
+        let cases: [Vector; 12] = [
             // zero input and seed, first step
             (
                 [

@@ -1,14 +1,11 @@
-# Crate plan and proposed API contracts
+# Crate design and API contracts
 
-Status: partial implementation with public API stubs. Public types are exported
-from `src/lib.rs`; WOTS+ keys and signatures live in `src/key.rs` and
-`src/signature.rs`, and raw byte conversions live in `src/encoding.rs`.
-Digest and public-seed value helpers, message digits and checksum, address
-encoding, and SHA-256 `F` and `PRF` helpers are implemented and tested.
-Chain traversal and the remaining key, signature, and encoding operations
-are `todo!()` stubs. Rust blocks below remain design sketches. The scaffold
-uses infallible fixed-array constructors and fallible `TryFrom<&[u8]>` parsing
-instead of the slice-based constructors shown below.
+Status: the fixed-profile standalone implementation is complete. Public types
+are exported from `src/lib.rs`; key operations live in `src/key.rs`, signature
+storage and fixed-array encoding in `src/signature.rs`, and exact-length slice
+parsing in `src/encoding.rs`. Random generation, seed expansion, signing,
+verification, public encodings, and parsing are implemented. The runnable
+example is `examples/sign_verify.rs`. Rust 1.97 is the minimum supported version.
 
 The internal `src/hash/mod.rs` boundary selects `src/hash/sha2_256.rs`.
 WOTS+ primitives are separate from that concrete hash implementation. Profile
@@ -21,13 +18,12 @@ The selected algorithm is RFC 8391 `WOTSP-SHA2_256`: SHA-256, 32-byte elements,
 base 16, and 67 chains. The first implementation will retain the full public
 key so each chain's role is easy to follow.
 
-The current scope includes documentation, the Cargo manifest, public API
-stubs, and the implemented helpers listed above. Key generation, signing,
-verification, executable examples, a reference harness, and CI workflows
-remain future work.
+The current scope includes the fixed-profile library, documentation, unit and
+integration tests, an executable example, vector generators, and a pinned C
+reference harness. CI workflows and publication are outside this scope.
 
-The later library will sign exactly one caller-supplied 32-byte value per key.
-It will not compute transaction digests or decide network binding. It is a
+The library signs exactly one caller-supplied 32-byte value per key.
+It does not compute transaction digests or decide network binding. It is a
 primitive, not an XMSS implementation and not a wallet.
 
 ### Existing implementation comparison
@@ -50,9 +46,9 @@ for a future derivative. The plan is an implementation from the specification,
 not a copy of the surveyed Rust signature code. The C reference states CC0 for
 its included code in its [README](https://github.com/XMSS/xmss-reference/blob/171ccbd26f098542a67eb5d2b128281c80bd71a6/README.md).
 
-## 2. Foundation of the future crate
+## 2. Crate responsibilities
 
-| Responsibility | Intended contents |
+| Responsibility | Contents |
 | --- | --- |
 | Fixed parameters and public types | One algorithm, sizes, digest, public seed, verifying key, signature, and errors |
 | Message encoding | High-nibble-first base-16 conversion and three checksum digits |
@@ -63,22 +59,19 @@ its included code in its [README](https://github.com/XMSS/xmss-reference/blob/17
 | Signing and verification | Consuming signing and checking every reconstructed endpoint |
 | Public encodings | Fixed-length, unambiguous bytes for the verifying key and signature |
 
-These are implementation responsibilities; only public API stubs exist. Keep the
+These are the implemented responsibilities. Keep the
 private helpers private. Do not expose generic parameter selection, arbitrary
 hash callbacks, raw mutable contexts, or a public unchecked signing helper.
 
-Use RustCrypto `sha2` for SHA-256, `rand_core` for caller-supplied cryptographic
-randomness, `zeroize` for managed secret storage, and `subtle` for verification
-comparison and secret-seed equality checks. The RNG interface sketch follows
-[`rand_core` 0.10.1](https://docs.rs/rand_core/0.10.1/rand_core/), where
-`TryCryptoRng` extends the fallible `TryRng` interface. There is no
-cryptographic implementation in this phase. The scaffold depends only on
-`rand_core` and `zeroize`; hashing and comparison dependencies come with their users.
+Use RustCrypto `sha2` for SHA-256 with its `zeroize` feature, `rand_core` for
+caller-supplied randomness, and `zeroize` for managed secret storage. The
+`rand_core` 0.10.1 `TryCryptoRng` interface extends fallible `TryRng`. The example
+and OS-randomness test use development-only `getrandom::SysRng`.
 
-The future crate should forbid unsafe code. Fixed-size arrays suffice for the
-core representation. This design does not commit to a `no_std` support matrix,
-platform-specific RNG adapter, standard `signature::Signer` implementation,
-serialization framework, or FFI boundary.
+Per the dependency-free comparison decision, seed equality is ordinary equality,
+and verification accumulates differences across all endpoint bytes. Neither
+claims constant-time machine code. The crate forbids unsafe Rust code and does
+not offer generic profiles, `no_std` support, FFI, or a reusable borrowing signer.
 
 ### Algorithm contract
 
@@ -111,91 +104,24 @@ future Merkle-tree integration.
 | `Signature` | 67 public chain values; parsed shape is not evidence of validity |
 
 Public values may support cloning and debug formatting. `SecretSeed` and
-`SigningKey` must zeroize their managed secret buffers on drop. Future derived
-secret temporaries must also be cleared when their use ends. Importing an
+`SigningKey` zeroize their managed secret buffers on drop. Derived starts and
+managed chain temporaries are also cleared on drop; the
+SHA-256 dependency clears its managed state. Compiler-generated temporary
+copies and registers are outside this cleanup guarantee. Importing an
 array transfers ownership at the API level, but cannot erase copies the caller
 already made or guarantee that the compiler made none.
 
-### Proposed signatures
+### Public API
 
-These declarations are illustrative and omit method bodies and trait derives.
-They intentionally do not form a compilable module.
+The source and `cargo doc --no-deps` describe the implemented API. Fixed-array
+constructors accept `[u8; 32]` for seed and digest values, `&[u8; 2144]` for
+signatures, and `&[u8; 2176]` for verifying keys. `TryFrom<&[u8]>` rejects invalid
+lengths for digests, signatures, and verifying keys. Public parsing does not
+authenticate a key or establish signature validity.
 
-```rust,ignore
-use rand_core::TryCryptoRng;
-
-pub struct MessageDigest { /* private [u8; 32] */ }
-pub struct PublicSeed { /* private [u8; 32] */ }
-pub struct SecretSeed { /* private zeroizing [u8; 32] */ }
-pub struct SigningKey { /* private SecretSeed and PublicSeed */ }
-pub struct VerifyingKey { /* private PublicSeed and [[u8; 32]; 67] */ }
-pub struct Signature { /* private [[u8; 32]; 67] */ }
-
-impl MessageDigest {
-    pub fn from_bytes(bytes: [u8; 32]) -> Self;
-    pub fn from_slice(bytes: &[u8]) -> Result<Self, DecodeError>;
-    pub fn as_bytes(&self) -> &[u8; 32];
-}
-
-impl PublicSeed {
-    pub fn from_bytes(bytes: [u8; 32]) -> Self;
-    pub fn as_bytes(&self) -> &[u8; 32];
-}
-
-impl SecretSeed {
-    pub fn from_bytes(bytes: [u8; 32]) -> Self;
-}
-
-impl SigningKey {
-    pub fn generate<R: TryCryptoRng + ?Sized>(
-        rng: &mut R,
-    ) -> Result<Self, KeyGenerationError<R::Error>>;
-
-    pub fn from_seeds(
-        secret_seed: SecretSeed,
-        public_seed: PublicSeed,
-    ) -> Result<Self, SeedError>;
-
-    pub fn verifying_key(&self) -> VerifyingKey;
-
-    pub fn sign_digest(self, digest: &MessageDigest) -> Signature;
-}
-
-impl VerifyingKey {
-    pub fn public_seed(&self) -> &PublicSeed;
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, DecodeError>;
-    pub fn to_bytes(&self) -> [u8; 2176];
-
-    pub fn verify_digest(
-        &self,
-        digest: &MessageDigest,
-        signature: &Signature,
-    ) -> Result<(), VerifyError>;
-}
-
-impl Signature {
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, DecodeError>;
-    pub fn to_bytes(&self) -> [u8; 2144];
-}
-
-pub struct DecodeError {
-    pub expected: usize,
-    pub actual: usize,
-}
-
-pub enum SeedError {
-    EqualSeeds,
-}
-
-pub enum KeyGenerationError<E> {
-    Randomness(E),
-    EqualSeeds,
-}
-
-pub enum VerifyError {
-    InvalidSignature,
-}
-```
+`SigningKey::generate` takes a caller-supplied `TryCryptoRng`; `from_seeds` imports
+owned seed values. `sign_digest(self, &MessageDigest)` consumes its signing key.
+`VerifyingKey::verify_digest` borrows its key and signature and may be repeated.
 
 ### Inputs, outputs, and failure behavior
 
@@ -223,7 +149,7 @@ caller obligation, not an operation this library can mark globally safe.
 
 ### Public byte encodings
 
-This is the proposed raw library encoding for the fixed profile, not the RFC's
+This is the raw library encoding for the fixed profile, not the RFC's
 Appendix A algorithm-tagged format or a blockchain wire specification.
 
 | Value | Bytes | Order |
@@ -244,7 +170,7 @@ key; parsing alone cannot detect a poorly generated or substituted key.
 
 ### Ownership example
 
-This is a conceptual sequence, not an executable example shipped in this phase:
+The executable `examples/sign_verify.rs` follows this sequence:
 
 ```text
 obtain a cryptographic random source
@@ -255,8 +181,8 @@ obtain a cryptographic random source
     -> verify again or rebroadcast the same signature as needed
 ```
 
-Calling the signing method again on the consumed object should fail to compile
-in the future crate. Calling `from_seeds` with a previously used private seed
+Calling the signing method again on the consumed object fails to compile; a
+compile-fail doctest protects this contract. Calling `from_seeds` with a previously used private seed
 can still recreate signing secrets. Neither changing the public seed nor
 changing the surrounding protocol makes reuse of that private seed safe.
 
@@ -294,9 +220,9 @@ A future compact key must bind the relevant public seed, algorithm profile,
 and endpoints under an explicitly designed verification rule. This phase
 does not choose that compact-key rule or its network representation.
 
-Independent cryptographic review is required after the implementation exists
-and before treating its evidence as sufficient for integration. These design
-documents do not approve a future implementation.
+Cryptographic review is required before treating this prototype's evidence as
+sufficient for application integration. Local tests and a C-reference cross-check
+are useful evidence but do not replace an independent audit.
 
 ## 5. Specification corrections and reference provenance
 
@@ -320,7 +246,7 @@ The held entries are guidance awaiting a document update, not verified changes
 to the published algorithms. The selected checksum alignment is four bits and
 does not encounter the unsupported-parameter issue discussed in erratum 8534.
 
-Pin the future independent oracle to XMSS reference commit
+The independent oracle is pinned to XMSS reference commit
 `171ccbd26f098542a67eb5d2b128281c80bd71a6`. Its
 [`wots.c`](https://github.com/XMSS/xmss-reference/blob/171ccbd26f098542a67eb5d2b128281c80bd71a6/wots.c)
 expands a seed using `prf_keygen`, public seed, and address. Its
@@ -329,40 +255,24 @@ uses an additional key-generation prefix. Our chosen standalone seed expansion
 is instead the section 3.1.7 method. Identical master seeds need not produce
 identical endpoints across these choices.
 
-For future exact key-generation and signing vectors, adapt only the reference
-seed-expansion boundary to derive the 67 starting values using the selected
-standalone method. Keep the reference chain, checksum, and signature algorithms
-unchanged. Its public-key reconstruction from a supplied signature can also
-cross-check our signatures without changing secret expansion.
+`scripts/check_c_reference.py` adapts only `expand_seed` in a temporary copy
+using `PRF(S, toByte(i,32))`. The checked-out reference remains clean. The chain,
+checksum, signing, and public-key reconstruction routines are unchanged.
+The harness checks all 67 endpoints, all 335 elements of five signatures,
+reconstruction of signatures exported directly by Rust, all 25 signature/digest
+combinations, and altered signatures. It checks the pin and original `wots.c`
+content hash, and prints source hashes and the compiler command.
 
-Record the pinned source, the adapter change, the public seed and digest, the
-explicitly non-secret test seed, parameters, and generated outputs beside each
-future fixture. Generate fixtures independently of the Rust code. Use test
-seeds only; no wallet seed or live signing secret belongs in a fixture, log,
-or document. The oracle is test evidence, not a runtime dependency. It is not
-downloaded, modified, or executed during this documentation phase.
+The tests use only public fixture seeds. No live wallet material belongs in
+fixtures or logs. C is a development-only oracle, not a runtime dependency.
+The cross-check validates these inputs; it is not an audit or proof of equivalence.
 
-## 6. Guided implementation plan for later
+## 6. Validation contracts
 
-Message digits, address encoding, and the hash helpers are implemented; chain
-traversal and later checkpoints remain unfinished. Explain each remaining
-construction before writing it, inspect the small change, and validate the
-behavior before moving on.
-Roman requests the next step separately; this document does not start it.
+The implementation covers the following checks. Independent review and local
+checks are evidence for this prototype, not permission to deploy or integrate it.
 
-| Checkpoint | Implementation goal | Acceptance evidence |
-| --- | --- | --- |
-| Message digits | Fixed high-nibble-first conversion and checksum | Zero, maximum, mixed, and checksum-alignment examples match independent arithmetic |
-| Hash context and chains | Safe big-endian encoding, `F`, `PRF`, and bounded traversal | Exact label bytes and independent hash vectors; all valid start/length pairs compose correctly |
-| Keys | Seed ownership, fallible generation, standalone expansion, and endpoint generation | Reproducible independently generated vectors, RNG failure handling, equal-seed rejection |
-| Signing and verification | Consuming signing, digit recomputation, and endpoint comparison | Valid cross-verification; altered digests, signatures, public seeds, and endpoints fail |
-| Public API completion | Fixed encodings and a minimal public-data example | Exact bytes round-trip; malformed lengths fail; consuming API fails to compile when reused |
-| Review | Check construction, secret handling, parser bounds, and reference provenance | Focused suite passes and an independent reviewer assesses the exact implementation |
-
-The existing scaffold includes the public API stubs. Implement the remaining
-checkpoints one at a time. No crate publication is part of this plan.
-
-### Test scenarios to implement later
+### Test scenarios
 
 - Digits preserve byte order; `0xa7` becomes `[10, 7]`. All 64 message digits and
   three checksum digits remain within 0 through 15.
@@ -396,18 +306,13 @@ checkpoints one at a time. No crate publication is part of this plan.
 The checksum attack illustration is explanatory. Do not weaken the real signer
 or ship a checksum-free signing API merely to demonstrate the attack.
 
-## 7. Completion of the current phase
+## 7. Completion boundary
 
-The foundation is complete when the three documents agree on the construction,
-types, ownership, encodings, errors, and boundaries; their arithmetic examples
-are checked; and their local links and Markdown structure are sound. These
-checks validate documentation, not cryptographic behavior. Proposed Rust
-declarations remain uncompiled.
+Completion means the fixed-profile primitive, all declared public operations,
+public encodings, malformed-input handling, RNG failure paths, executable
+example, fixture generators, and C-reference cross-check are implemented and
+reviewed. Run `cargo test --locked`, `cargo clippy --all-targets -- -D warnings`,
+`cargo fmt --check`, and the reference harness on the selected Rust toolchain.
 
-Stop at that point and present the documents for discussion. Do not create the
-Cargo package, algorithms, tests, reference adapter, integration code, or a
-publication workflow as part of completing the foundation.
-
-The first discussion topic is the two-digit checksum example in the walkthrough:
-why moving a message digit forward requires moving at least one checksum chain
-backward. Once that is clear, Roman can request the first coding checkpoint.
+Publication, CI workflows, generic profiles, compact keys, Merkle trees,
+application integration, and side-channel qualification remain separate work.

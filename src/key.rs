@@ -6,7 +6,7 @@ use zeroize::Zeroizing;
 use crate::chain::chain;
 use crate::digits::message_digits;
 use crate::hash::prf;
-use crate::params::{BASE16_MAX, CHAINS, ELEMENT_BYTES};
+use crate::params::{BASE16_MAX, CHAINS, ELEMENT_BYTES, VERIFYING_KEY_BYTES};
 use crate::signature::{MessageDigest, Signature, VerifyError};
 
 /// Public seed; constructing this value does not establish its entropy.
@@ -14,9 +14,31 @@ use crate::signature::{MessageDigest, Signature, VerifyError};
 pub struct PublicSeed([u8; ELEMENT_BYTES]);
 
 /// Owned secret storage, cleared on drop. Caller-owned copies cannot be erased here.
+///
+/// ```compile_fail,E0599
+/// use wots::SecretSeed;
+/// let seed = SecretSeed::from_bytes([0; 32]);
+/// let duplicate = seed.clone();
+/// ```
+///
+/// ```compile_fail,E0277
+/// use wots::SecretSeed;
+/// let seed = SecretSeed::from_bytes([0; 32]);
+/// println!("{seed:?}");
+/// ```
 pub struct SecretSeed(Zeroizing<[u8; ELEMENT_BYTES]>);
 
 /// One-time signing secret. Reconstructing it from seeds can bypass object consumption.
+///
+/// ```compile_fail,E0599
+/// use wots::SigningKey;
+/// fn duplicate(key: SigningKey) { let copy = key.clone(); }
+/// ```
+///
+/// ```compile_fail,E0277
+/// use wots::SigningKey;
+/// fn print_secret(key: SigningKey) { println!("{key:?}"); }
+/// ```
 pub struct SigningKey {
     secret_seed: SecretSeed,
     public_seed: PublicSeed,
@@ -52,10 +74,7 @@ fn derive_chain_start(
     let mut encoded_index = [0u8; 32];
     encoded_index[28..].copy_from_slice(&chain_index.to_be_bytes());
 
-    // Borrow the seed bytes and derive the secret starting value
-    let secret_start = prf(&secret_seed.0, &encoded_index);
-
-    Ok(Zeroizing::new(secret_start))
+    Ok(Zeroizing::new(prf(&secret_seed.0, &encoded_index)))
 }
 
 impl PublicSeed {
@@ -80,7 +99,14 @@ impl SigningKey {
     pub fn generate<R: TryCryptoRng + ?Sized>(
         rng: &mut R,
     ) -> Result<Self, KeyGenerationError<R::Error>> {
-        todo!()
+        let mut secret_seed = SecretSeed(Zeroizing::new([0; ELEMENT_BYTES]));
+        rng.try_fill_bytes(secret_seed.0.as_mut())
+            .map_err(KeyGenerationError::Randomness)?;
+        let mut public_bytes = [0; ELEMENT_BYTES];
+        rng.try_fill_bytes(&mut public_bytes)
+            .map_err(KeyGenerationError::Randomness)?;
+        Self::from_seeds(secret_seed, PublicSeed::from_bytes(public_bytes))
+            .map_err(|SeedError::EqualSeeds| KeyGenerationError::EqualSeeds)
     }
 
     /// Rejects equal seeds using ordinary equality, then takes ownership of both.
@@ -151,6 +177,38 @@ impl SigningKey {
     }
 }
 impl VerifyingKey {
+    /// Reads a public seed followed by 67 endpoints; parsing does not authenticate it.
+    pub fn from_bytes(bytes: &[u8; VERIFYING_KEY_BYTES]) -> Self {
+        let mut public_bytes = [0; ELEMENT_BYTES];
+        public_bytes.copy_from_slice(&bytes[..ELEMENT_BYTES]);
+        let mut endpoints = [[0; ELEMENT_BYTES]; CHAINS];
+        for (endpoint, chunk) in endpoints
+            .iter_mut()
+            .zip(bytes[ELEMENT_BYTES..].as_chunks::<ELEMENT_BYTES>().0.iter())
+        {
+            endpoint.copy_from_slice(chunk);
+        }
+        Self {
+            public_seed: PublicSeed::from_bytes(public_bytes),
+            endpoints,
+        }
+    }
+
+    /// Writes the public seed followed by 67 endpoints, without an algorithm envelope.
+    pub fn to_bytes(&self) -> [u8; VERIFYING_KEY_BYTES] {
+        let mut bytes = [0; VERIFYING_KEY_BYTES];
+        bytes[..ELEMENT_BYTES].copy_from_slice(self.public_seed.as_bytes());
+        for (chunk, endpoint) in bytes[ELEMENT_BYTES..]
+            .as_chunks_mut::<ELEMENT_BYTES>()
+            .0
+            .iter_mut()
+            .zip(self.endpoints.iter())
+        {
+            chunk.copy_from_slice(endpoint);
+        }
+        bytes
+    }
+
     /// Reconstructs all 67 chain endpoints and checks them against this expected key.
     /// The caller must authenticate this key. Verification borrows both inputs and
     /// may be repeated. Any mismatch returns InvalidSignature without its location.
@@ -165,10 +223,12 @@ impl VerifyingKey {
         let signature_bytes = signature.to_bytes();
         let mut difference = 0u8;
 
-        for (index, element) in signature_bytes.chunks_exact(ELEMENT_BYTES).enumerate() {
-            let element: &[u8; ELEMENT_BYTES] = element
-                .try_into()
-                .expect("signature elements have the fixed element size");
+        for (index, element) in signature_bytes
+            .as_chunks::<ELEMENT_BYTES>()
+            .0
+            .iter()
+            .enumerate()
+        {
             let start = digits[index] as u32;
             let endpoint = chain(
                 element,
@@ -192,7 +252,7 @@ impl VerifyingKey {
     }
 
     pub fn public_seed(&self) -> &PublicSeed {
-        todo!()
+        &self.public_seed
     }
 }
 
@@ -210,6 +270,130 @@ pub enum KeyGenerationError<E> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Deterministic stand-in for testing the caller-supplied RNG contract only.
+    struct ScriptedRng {
+        seeds: [[u8; 32]; 2],
+        fills: usize,
+        fail_at: Option<usize>,
+    }
+
+    impl rand_core::TryRng for ScriptedRng {
+        type Error = std::io::Error;
+
+        fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+            panic!("key generation should request complete seed buffers")
+        }
+
+        fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+            panic!("key generation should request complete seed buffers")
+        }
+
+        fn try_fill_bytes(&mut self, dst: &mut [u8]) -> Result<(), Self::Error> {
+            assert_eq!(dst.len(), 32);
+            self.fills += 1;
+            if self.fail_at == Some(self.fills) {
+                // An RNG may partially fill its destination before reporting failure.
+                dst[..16].fill(0x55);
+                return Err(std::io::Error::other("test entropy failure"));
+            }
+            dst.copy_from_slice(&self.seeds[self.fills - 1]);
+            Ok(())
+        }
+    }
+
+    impl TryCryptoRng for ScriptedRng {}
+
+    #[test]
+    fn generation_reads_two_seeds_and_produces_a_usable_key() {
+        let mut rng = ScriptedRng {
+            seeds: [[0x42; 32], [0xa5; 32]],
+            fills: 0,
+            fail_at: None,
+        };
+        // Also exercise the ?Sized generic contract.
+        let source: &mut dyn TryCryptoRng<Error = std::io::Error> = &mut rng;
+        let key = SigningKey::generate(source).unwrap();
+        assert_eq!(rng.fills, 2);
+        assert_eq!(*key.secret_seed.0, [0x42; 32]);
+        assert_eq!(key.public_seed.as_bytes(), &[0xa5; 32]);
+        let public = key.verifying_key();
+        let digest = MessageDigest::from_bytes([0xa7; 32]);
+        assert_eq!(
+            public.verify_digest(&digest, &key.sign_digest(&digest)),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn generation_propagates_either_rng_failure_without_retrying() {
+        for failed_fill in [1, 2] {
+            let mut rng = ScriptedRng {
+                seeds: [[0x42; 32], [0xa5; 32]],
+                fills: 0,
+                fail_at: Some(failed_fill),
+            };
+            match SigningKey::generate(&mut rng) {
+                Err(KeyGenerationError::Randomness(error)) => {
+                    assert_eq!(error.to_string(), "test entropy failure");
+                }
+                _ => panic!("an entropy failure must return no key"),
+            }
+            assert_eq!(rng.fills, failed_fill);
+        }
+    }
+
+    #[test]
+    fn generation_rejects_equal_seeds_without_retrying() {
+        let mut rng = ScriptedRng {
+            seeds: [[0x42; 32]; 2],
+            fills: 0,
+            fail_at: None,
+        };
+        assert!(matches!(
+            SigningKey::generate(&mut rng),
+            Err(KeyGenerationError::EqualSeeds)
+        ));
+        assert_eq!(rng.fills, 2);
+    }
+
+    #[test]
+    fn public_key_encoding_has_a_seed_prefix_and_ordered_endpoints() {
+        let public_bytes = [0xa5; 32];
+        let endpoints =
+            std::array::from_fn(|chain| std::array::from_fn(|offset| (chain * 3 + offset) as u8));
+        let key = VerifyingKey {
+            public_seed: PublicSeed::from_bytes(public_bytes),
+            endpoints,
+        };
+        let encoded = key.to_bytes();
+        assert_eq!(encoded.len(), 2176);
+        assert_eq!(&encoded[..32], &public_bytes);
+        for chain in 0..67 {
+            for offset in 0..32 {
+                assert_eq!(
+                    encoded[32 + chain * 32 + offset],
+                    (chain * 3 + offset) as u8
+                );
+            }
+        }
+        // Parse independently constructed bytes, so mirrored encoder/decoder bugs
+        // cannot pass solely because their round trip agrees.
+        let input = std::array::from_fn(|index| (index / 32 * 3 + index % 32) as u8);
+        let parsed = VerifyingKey::from_bytes(&input);
+        assert_eq!(
+            parsed.public_seed.as_bytes(),
+            &std::array::from_fn::<_, 32, _>(|i| i as u8)
+        );
+        for chain in 0..67 {
+            for offset in 0..32 {
+                assert_eq!(
+                    parsed.endpoints[chain][offset],
+                    ((chain + 1) * 3 + offset) as u8
+                );
+            }
+        }
+    }
 
     fn signing_test_key() -> SigningKey {
         // Public test seeds only; recreating a real key for multiple digests is unsafe.
@@ -262,7 +446,12 @@ mod tests {
         ] {
             let elements = decode_fixture_elements(fixture);
             let mut bytes = [0u8; crate::params::SIGNATURE_BYTES];
-            for (chunk, element) in bytes.chunks_exact_mut(32).zip(elements.iter()) {
+            for (chunk, element) in bytes
+                .as_chunks_mut::<32>()
+                .0
+                .iter_mut()
+                .zip(elements.iter())
+            {
                 chunk.copy_from_slice(element);
             }
             let signature = Signature::from_bytes(&bytes);
@@ -346,7 +535,7 @@ mod tests {
             let signature = key.sign_digest(&digest);
             let expected: Vec<_> = fixture.lines().collect();
             assert_eq!(expected.len(), 67);
-            for (index, element) in signature.to_bytes().chunks_exact(32).enumerate() {
+            for (index, element) in signature.to_bytes().as_chunks::<32>().0.iter().enumerate() {
                 let hex: String = element.iter().map(|byte| format!("{byte:02x}")).collect();
                 assert_eq!(
                     hex, expected[index],

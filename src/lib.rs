@@ -1,9 +1,13 @@
 //! Standalone RFC 8391 WOTS+ with a fixed SHA-256, 32-byte, base-16 profile.
 //!
-//! Value helpers, message digits, address encoding, hash helpers, chain traversal,
-//! seed expansion, public endpoint generation, signing, and fixed-array signature
-//! encoding and verification are implemented. Random key generation, key encoding,
-//! signature slice parsing, and the verifying-key public-seed accessor remain stubs.
+//! Supports caller-supplied cryptographic randomness, seed import, public-key
+//! generation, consuming one-time signing, repeatable verification, and exact-length
+//! public encodings. The caller owns digest construction, expected-key authentication,
+//! and prevention of reuse across reconstructed signing keys.
+//!
+//! Managed secrets and hash state are cleared on drop. Compiler-generated copies
+//! and registers are outside that guarantee. Comparisons are dependency-free and
+//! do not guarantee constant-time machine code. This prototype has not been audited.
 
 #![forbid(unsafe_code)]
 

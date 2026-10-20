@@ -1,7 +1,7 @@
 //! Raw library payloads; these are not RFC Appendix A envelopes.
 
 use crate::key::VerifyingKey;
-use crate::params::{DIGEST_BYTES, VERIFYING_KEY_BYTES};
+use crate::params::{DIGEST_BYTES, SIGNATURE_BYTES, VERIFYING_KEY_BYTES};
 use crate::signature::{MessageDigest, Signature};
 
 impl TryFrom<&[u8]> for MessageDigest {
@@ -16,23 +16,16 @@ impl TryFrom<&[u8]> for MessageDigest {
     }
 }
 
-impl VerifyingKey {
-    /// Reads the public seed followed by 67 endpoints in chain order.
-    pub fn from_bytes(bytes: &[u8; VERIFYING_KEY_BYTES]) -> Self {
-        todo!()
-    }
-
-    pub fn to_bytes(&self) -> [u8; VERIFYING_KEY_BYTES] {
-        todo!()
-    }
-}
-
 impl TryFrom<&[u8]> for VerifyingKey {
     type Error = DecodeError;
 
     /// Rejects truncation and trailing bytes.
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        todo!()
+        let array = bytes.try_into().map_err(|_| DecodeError {
+            expected: VERIFYING_KEY_BYTES,
+            actual: bytes.len(),
+        })?;
+        Ok(Self::from_bytes(array))
     }
 }
 
@@ -41,7 +34,11 @@ impl TryFrom<&[u8]> for Signature {
 
     /// Rejects truncation and trailing bytes.
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        todo!()
+        let array = bytes.try_into().map_err(|_| DecodeError {
+            expected: SIGNATURE_BYTES,
+            actual: bytes.len(),
+        })?;
+        Ok(Self::from_bytes(array))
     }
 }
 
