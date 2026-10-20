@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reproduce full WOTS+ signatures for public test seeds and three digests.
+"""Reproduce full WOTS+ signatures for public test seeds and five digests.
 
 Requires Python 3.10+ and OpenSSL; no Python packages are needed. Implements
 RFC 8391 sections 3.1.2, 3.1.5, 3.1.7, and 5.1 independently of Rust. Every
@@ -8,11 +8,12 @@ not RFC-published vectors or C-reference outputs; the hash check does not
 independently establish that the RFC was interpreted correctly.
 
 Test secret seed: 00..1f. Test public seed: 1f..00. Digests: zero bytes,
-maximum bytes, or ascending bytes 00..1f. Reusing these public test seeds across
+maximum bytes, ascending bytes 00..1f, repeated a7, or repeated 0f.
+Reusing these public test seeds across
 fixtures is for testing only and is unsafe for real signing keys.
 
 Prints 67 lowercase hex signature elements for --case (default: patterned).
-With --check, reads and verifies all three tests/data/signature_*.hex files.
+With --check, reads and verifies all five tests/data/signature_*.hex files.
 Does not execute Rust or write files.
 """
 
@@ -72,6 +73,8 @@ def main(argv=None):
         "zero": bytes(32),
         "maximum": bytes([255]) * 32,
         "patterned": bytes(range(32)),
+        "mixed": bytes([0xa7]) * 32,
+        "alternating": bytes([0x0f]) * 32,
     }
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--case", choices=digests, default="patterned")
@@ -83,7 +86,10 @@ def main(argv=None):
             expected = derive_signature(digest)
             if (data_dir / f"signature_{name}.hex").read_text() != expected:
                 raise ValueError(f"Saved {name} signature differs from derived values")
-        print("Verified 3 full signatures (201 elements) against fixtures and OpenSSL.")
+        print(
+            f"Verified {len(digests)} full signatures ({67 * len(digests)} elements) "
+            "against fixtures and OpenSSL."
+        )
     else:
         print(derive_signature(digests[args.case]), end="")
 

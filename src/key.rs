@@ -251,6 +251,14 @@ mod tests {
                 std::array::from_fn(|i| i as u8),
                 include_str!("../tests/data/signature_patterned.hex"),
             ),
+            (
+                [0xa7; 32],
+                include_str!("../tests/data/signature_mixed.hex"),
+            ),
+            (
+                [0x0f; 32],
+                include_str!("../tests/data/signature_alternating.hex"),
+            ),
         ] {
             let elements = decode_fixture_elements(fixture);
             let mut bytes = [0u8; crate::params::SIGNATURE_BYTES];
