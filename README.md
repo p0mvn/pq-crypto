@@ -9,8 +9,8 @@ integration in Vizor.
 The crate exposes WOTS+ keys, signatures, and message digests at its root.
 Seed and digest helpers, message digits and checksum, address encoding, SHA-256
 hash helpers, chain traversal, secret expansion, key construction from supplied
-seeds, public endpoint generation, signing, and fixed-array signature encoding
-are implemented and tested. Random key generation, verification, key encoding,
+seeds, public endpoint generation, signing, verification, and fixed-array signature
+encoding are implemented and tested. Random key generation, key encoding,
 signature slice parsing, and the verifying-key public-seed accessor remain
 `todo!()` stubs that panic when called.
 
@@ -85,7 +85,7 @@ does not create a new signature.
 | Message representation | Base-16 digits and checksum | Implemented and tested |
 | WOTS+ hashing | Context encoding and chain operations | Address encoding, F, and PRF implemented and tested; traversal is a stub |
 | Keys | Secret expansion and endpoint generation | Planned |
-| Signatures | Consuming signing and verification | Signing implemented and tested; verification is a stub |
+| Signatures | Consuming signing and verification | Implemented and tested |
 | Qualification | Parsing, independent vectors, example, and review | Planned |
 
 The public API boilerplate is also outlined in Rust. Later stages should be implemented

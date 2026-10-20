@@ -208,7 +208,7 @@ pub enum VerifyError {
 | `from_seeds` | Consume the private seed, require distinct seed values, and clear the private seed on error. Success does not prove entropy, independence, or that this seed has never been used. |
 | `verifying_key` | Borrow the signing key and compute its public seed and all endpoints. This operation reveals no signing values and does not consume the key. It may be called more than once. |
 | `sign_digest` | Consume the key, deterministically produce its one signature, and clear managed private seed and secret-derived temporaries. It needs no additional randomness. With typed inputs and fixed internal ranges it has no recoverable input error; no unsafe or unchecked public signing route is provided. |
-| `verify_digest` | Borrow the expected key and signature. Reconstruct all endpoints and compare them using constant-time comparison. Return `InvalidSignature` on mismatch, without exposing the first mismatching chain. Verification may be repeated. |
+| `verify_digest` | Borrow the expected key and signature. Reconstruct all endpoints and accumulate byte differences without an early mismatch return. The dependency-free comparison does not guarantee constant-time machine code. Return `InvalidSignature` on mismatch, without exposing the first mismatching chain. Verification may be repeated. |
 | Public parsing | Accept only the exact byte length. Reject truncation or trailing bytes. Do not allocate based on untrusted lengths or panic on malformed input. Correct length establishes representation only. |
 | Public encoding | Return the exact fixed-size payload defined below, without secrets or implicit envelopes. |
 

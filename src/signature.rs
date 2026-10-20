@@ -1,6 +1,5 @@
 //! WOTS+ message digests, signatures, and verification.
 
-use crate::key::VerifyingKey;
 use crate::params::{CHAINS, DIGEST_BYTES, ELEMENT_BYTES, SIGNATURE_BYTES};
 
 /// Caller-supplied digest; transaction hashing and network binding belong to the caller.
@@ -38,17 +37,6 @@ impl MessageDigest {
 
     pub fn as_bytes(&self) -> &[u8; DIGEST_BYTES] {
         &self.0
-    }
-}
-
-impl VerifyingKey {
-    /// Checks all reconstructed endpoints against this expected key.
-    pub fn verify_digest(
-        &self,
-        digest: &MessageDigest,
-        signature: &Signature,
-    ) -> Result<(), VerifyError> {
-        todo!()
     }
 }
 

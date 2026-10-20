@@ -7,7 +7,7 @@ use crate::chain::chain;
 use crate::digits::message_digits;
 use crate::hash::prf;
 use crate::params::{BASE16_MAX, CHAINS, ELEMENT_BYTES};
-use crate::signature::{MessageDigest, Signature};
+use crate::signature::{MessageDigest, Signature, VerifyError};
 
 /// Public seed; constructing this value does not establish its entropy.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -151,6 +151,46 @@ impl SigningKey {
     }
 }
 impl VerifyingKey {
+    /// Reconstructs all 67 chain endpoints and checks them against this expected key.
+    /// The caller must authenticate this key. Verification borrows both inputs and
+    /// may be repeated. Any mismatch returns InvalidSignature without its location.
+    /// Compares every endpoint byte without early returns; this handwritten
+    /// comparison does not guarantee constant-time machine code.
+    pub fn verify_digest(
+        &self,
+        digest: &MessageDigest,
+        signature: &Signature,
+    ) -> Result<(), VerifyError> {
+        let digits = message_digits(digest);
+        let signature_bytes = signature.to_bytes();
+        let mut difference = 0u8;
+
+        for (index, element) in signature_bytes.chunks_exact(ELEMENT_BYTES).enumerate() {
+            let element: &[u8; ELEMENT_BYTES] = element
+                .try_into()
+                .expect("signature elements have the fixed element size");
+            let start = digits[index] as u32;
+            let endpoint = chain(
+                element,
+                &self.public_seed,
+                index as u32,
+                start,
+                BASE16_MAX as u32 - start,
+            )
+            .expect("message and checksum digits select valid remaining chain steps");
+
+            for (actual, expected) in endpoint.iter().zip(self.endpoints[index].iter()) {
+                difference |= actual ^ expected;
+            }
+        }
+
+        if difference == 0 {
+            Ok(())
+        } else {
+            Err(VerifyError::InvalidSignature)
+        }
+    }
+
     pub fn public_seed(&self) -> &PublicSeed {
         todo!()
     }
@@ -180,28 +220,99 @@ mod tests {
         .unwrap()
     }
 
+    fn decode_fixture_elements(fixture: &str) -> [[u8; 32]; 67] {
+        let lines: Vec<_> = fixture.lines().collect();
+        assert_eq!(lines.len(), 67);
+        std::array::from_fn(|index| {
+            assert_eq!(lines[index].len(), 64);
+            std::array::from_fn(|offset| {
+                u8::from_str_radix(&lines[index][offset * 2..offset * 2 + 2], 16).unwrap()
+            })
+        })
+    }
+
+    #[test]
+    fn verification_accepts_independent_fixtures_repeatedly_without_changing_inputs() {
+        // Both the signature elements and endpoints come from saved independent
+        // Python/OpenSSL fixtures, rather than the Rust signer or key generator.
+        let expected = VerifyingKey {
+            public_seed: PublicSeed::from_bytes(std::array::from_fn(|i| (31 - i) as u8)),
+            endpoints: decode_fixture_elements(include_str!(
+                "../tests/data/verifying_key_endpoints.hex"
+            )),
+        };
+        for (digest_bytes, fixture) in [
+            ([0; 32], include_str!("../tests/data/signature_zero.hex")),
+            (
+                [0xff; 32],
+                include_str!("../tests/data/signature_maximum.hex"),
+            ),
+            (
+                std::array::from_fn(|i| i as u8),
+                include_str!("../tests/data/signature_patterned.hex"),
+            ),
+        ] {
+            let elements = decode_fixture_elements(fixture);
+            let mut bytes = [0u8; crate::params::SIGNATURE_BYTES];
+            for (chunk, element) in bytes.chunks_exact_mut(32).zip(elements.iter()) {
+                chunk.copy_from_slice(element);
+            }
+            let signature = Signature::from_bytes(&bytes);
+            let digest = MessageDigest::from_bytes(digest_bytes);
+            let key_before = expected.clone();
+            for _ in 0..2 {
+                assert_eq!(expected.verify_digest(&digest, &signature), Ok(()));
+            }
+            assert_eq!(expected, key_before);
+            assert_eq!(signature.to_bytes(), bytes);
+            assert_eq!(digest.as_bytes(), &digest_bytes);
+        }
+    }
+
+    #[test]
+    fn verification_rejects_a_change_at_every_signature_byte() {
+        // Digit 15 exercises zero remaining steps for message chains; checksum
+        // digits zero exercise full remaining walks. Every byte is checked.
+        let digest = MessageDigest::from_bytes([0xff; 32]);
+        let key = signing_test_key();
+        let expected = key.verifying_key();
+        let original = key.sign_digest(&digest).to_bytes();
+        for offset in 0..original.len() {
+            let mut changed = original;
+            changed[offset] ^= 1;
+            assert_eq!(
+                expected.verify_digest(&digest, &Signature::from_bytes(&changed)),
+                Err(VerifyError::InvalidSignature),
+                "modified signature byte={offset}",
+            );
+        }
+    }
+
+    #[test]
+    fn verification_rejects_a_change_at_every_expected_endpoint_byte() {
+        let key = signing_test_key();
+        let expected = key.verifying_key();
+        let digest = MessageDigest::from_bytes([0xff; 32]);
+        let signature = key.sign_digest(&digest);
+        for index in 0..67 {
+            for offset in 0..32 {
+                let mut changed = expected.clone();
+                changed.endpoints[index][offset] ^= 1;
+                assert_eq!(
+                    changed.verify_digest(&digest, &signature),
+                    Err(VerifyError::InvalidSignature),
+                    "modified endpoint={index}, byte={offset}",
+                );
+            }
+        }
+    }
+
     fn signature_reconstructs_key(
         digest: &MessageDigest,
         signature: &Signature,
         expected: &VerifyingKey,
     ) -> bool {
-        let digits = message_digits(digest);
-        signature
-            .to_bytes()
-            .chunks_exact(32)
-            .enumerate()
-            .all(|(index, bytes)| {
-                let element: &[u8; 32] = bytes.try_into().unwrap();
-                chain(
-                    element,
-                    &expected.public_seed,
-                    index as u32,
-                    digits[index] as u32,
-                    15 - digits[index] as u32,
-                )
-                .unwrap()
-                    == expected.endpoints[index]
-            })
+        expected.verify_digest(digest, signature).is_ok()
     }
 
     #[test]

@@ -2,7 +2,7 @@
 //!
 //! Value helpers, message digits, address encoding, hash helpers, chain traversal,
 //! seed expansion, public endpoint generation, signing, and fixed-array signature
-//! encoding are implemented. Random key generation, verification, key encoding,
+//! encoding and verification are implemented. Random key generation, key encoding,
 //! signature slice parsing, and the verifying-key public-seed accessor remain stubs.
 
 #![forbid(unsafe_code)]
