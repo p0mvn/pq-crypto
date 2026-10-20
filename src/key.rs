@@ -81,9 +81,18 @@ impl SigningKey {
         todo!()
     }
 
-    /// Rejects equal seeds. The caller must ensure independence, entropy, and freshness.
+    /// Rejects equal seeds using ordinary equality, then takes ownership of both.
+    /// This comparison does not guarantee constant-time execution.
+    /// The caller must ensure independence, entropy, freshness, and prevent key reuse.
     pub fn from_seeds(secret_seed: SecretSeed, public_seed: PublicSeed) -> Result<Self, SeedError> {
-        todo!()
+        if secret_seed.0.as_slice() == public_seed.as_bytes() {
+            return Err(SeedError::EqualSeeds);
+        }
+
+        Ok(Self {
+            secret_seed,
+            public_seed,
+        })
     }
 
     pub fn verifying_key(&self) -> VerifyingKey {
@@ -115,6 +124,35 @@ pub enum KeyGenerationError<E> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn signing_key_rejects_equal_seeds() {
+        for bytes in [[0; 32], [0xff; 32], std::array::from_fn(|i| i as u8)] {
+            let result = SigningKey::from_seeds(
+                SecretSeed::from_bytes(bytes),
+                PublicSeed::from_bytes(bytes),
+            );
+            assert!(matches!(result, Err(SeedError::EqualSeeds)));
+        }
+    }
+
+    #[test]
+    fn signing_key_accepts_seeds_differing_at_any_byte_and_preserves_them() {
+        let secret_bytes = [0x42; 32];
+
+        for index in 0..32 {
+            let mut public_bytes = secret_bytes;
+            public_bytes[index] ^= 1;
+            let key = SigningKey::from_seeds(
+                SecretSeed::from_bytes(secret_bytes),
+                PublicSeed::from_bytes(public_bytes),
+            )
+            .unwrap();
+
+            assert_eq!(*key.secret_seed.0, secret_bytes);
+            assert_eq!(key.public_seed.as_bytes(), &public_bytes);
+        }
+    }
 
     #[test]
     fn secret_chain_starts_match_independently_calculated_rfc_formula_vectors() {
