@@ -2,9 +2,9 @@
 """Reproduce the locally generated secret-expansion fixtures.
 
 Requires Python 3.10+ and openssl on PATH; no Python packages are needed.
-Derives PRF outputs using RFC 8391 sections 3.1.7 and 5.1 with hashlib and
-cross-checks every SHA-256 preimage with OpenSSL. These are not RFC-published
-vectors or C-reference outputs. OpenSSL checks the hashes, not the RFC encoding.
+Derives PRF_keygen outputs using NIST SP 800-208 section 5.1 with hashlib and
+cross-checks every SHA-256 preimage with OpenSSL. These are not NIST-published
+vectors or C-reference outputs. OpenSSL checks the hashes, not the encoding.
 
 By default, prints a Rust cases array to stdout without changing any files.
 With --check, reads src/key.rs and verifies its fixture tuples instead.
@@ -16,12 +16,18 @@ import ast
 import hashlib
 from pathlib import Path
 import re
+import struct
 import subprocess
 
 
-def derive_chain_start(seed: bytes, index: int) -> bytes:
-    """Compute SHA256(BE_32(3) || seed || BE_32(index)) for a valid test input."""
-    preimage = (3).to_bytes(32, "big") + seed + index.to_bytes(32, "big")
+def derive_chain_start(secret_seed: bytes, public_seed: bytes, index: int) -> bytes:
+    """Compute SHA256(BE_32(4) || secret_seed || public_seed || ADRS).
+
+    ADRS is the standalone address for chain index at step 0 with the key
+    selector: layer, tree, type, and key index are zero.
+    """
+    address = struct.pack(">8I", 0, 0, 0, 0, 0, index, 0, 0)
+    preimage = (4).to_bytes(32, "big") + secret_seed + public_seed + address
     expected = hashlib.sha256(preimage).digest()
     result = subprocess.run(
         ["openssl", "dgst", "-sha256", "-binary"],
@@ -36,10 +42,17 @@ def derive_chain_start(seed: bytes, index: int) -> bytes:
 
 
 def derive_vectors():
-    seeds = [bytes(32), bytes(range(32)), bytes([255]) * 32]
+    zero = bytes(32)
+    maximum = bytes([255]) * 32
+    seed_pairs = [
+        (bytes(range(32)), bytes(range(31, -1, -1))),
+        (zero, maximum),
+        (maximum, zero),
+    ]
     return [
-        (seed, index, derive_chain_start(seed, index))
-        for seed in seeds
+        (secret_seed, public_seed, index,
+         derive_chain_start(secret_seed, public_seed, index))
+        for secret_seed, public_seed in seed_pairs
         for index in [0, 1, 66]
     ]
 
@@ -51,12 +64,15 @@ def rust_array(value: bytes) -> str:
 def check_fixtures(vectors):
     source = Path(__file__).resolve().parents[1] / "src" / "key.rs"
     test = source.read_text().split(
-        "fn secret_chain_starts_match_independently_calculated_rfc_formula_vectors()", 1
+        "fn secret_chain_starts_match_independently_calculated_keygen_prf_vectors()", 1
     )[1]
     # Rust's literal array of tuples is also valid Python after removing comments.
     array = test.split("= [", 1)[1].split("\n        ];", 1)[0]
     actual = ast.literal_eval("[" + re.sub(r"//[^\n]*", "", array) + "]")
-    expected = [(list(seed), index, list(output)) for seed, index, output in vectors]
+    expected = [
+        (list(secret_seed), list(public_seed), index, list(output))
+        for secret_seed, public_seed, index, output in vectors
+    ]
     if actual != expected:
         raise ValueError("src/key.rs fixtures differ from independently derived vectors")
     print(
@@ -74,10 +90,11 @@ def main(argv=None):
         check_fixtures(vectors)
         return
 
-    print(f"let cases: [([u8; 32], u32, [u8; 32]); {len(vectors)}] = [")
-    for seed, index, output in vectors:
+    print(f"let cases: [([u8; 32], [u8; 32], u32, [u8; 32]); {len(vectors)}] = [")
+    for secret_seed, public_seed, index, output in vectors:
         print("    (")
-        print(f"        {rust_array(seed)},")
+        print(f"        {rust_array(secret_seed)},")
+        print(f"        {rust_array(public_seed)},")
         print(f"        {index},")
         print(f"        {rust_array(output)},")
         print("    ),")

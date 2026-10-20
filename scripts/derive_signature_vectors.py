@@ -2,7 +2,8 @@
 """Reproduce full WOTS+ signatures for public test seeds and five digests.
 
 Requires Python 3.10+ and OpenSSL; no Python packages are needed. Implements
-RFC 8391 sections 3.1.2, 3.1.5, 3.1.7, and 5.1 independently of Rust. Every
+RFC 8391 sections 3.1.2, 3.1.5, and 5.1 independently of Rust, with secret
+chain starts from the NIST SP 800-208 section 5.1 key generation PRF. Every
 SHA-256 preimage is checked with OpenSSL. These are locally generated fixtures,
 not RFC-published vectors or C-reference outputs; the hash check does not
 independently establish that the RFC was interpreted correctly.
@@ -62,7 +63,8 @@ def derive_signature(digest: bytes) -> str:
     elements = []
     for index, steps in enumerate(digits):
         start = sha256_checked(
-            (3).to_bytes(32, "big") + secret_seed + index.to_bytes(32, "big")
+            (4).to_bytes(32, "big") + secret_seed + public_seed
+            + struct.pack(">8I", 0, 0, 0, 0, 0, index, 0, 0)
         )
         elements.append(walk(start, public_seed, index, steps).hex())
     return "\n".join(elements) + "\n"

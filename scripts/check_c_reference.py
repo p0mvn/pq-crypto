@@ -3,14 +3,14 @@
 
 Requires Python 3.10+, git, cc, pkg-config, OpenSSL development files, Cargo,
 and rustc. With --reference-dir, uses a clean checkout at the exact pin.
-Otherwise downloads the pin into a temporary directory. Source adaptation,
-builds, and Rust signature exports live only in that temporary directory.
-The repository and reference checkout are read-only throughout this check.
+Otherwise downloads the pin into a temporary directory. Builds and Rust
+signature exports live only in that temporary directory. The repository and
+reference checkout are read-only throughout this check.
 
-Only the optional expand_seed function is adapted to RFC 8391 section 3.1.7.
-The reference chain, checksum, signing, and reconstruction code is unchanged.
-All inputs are public test data. This validates the selected vectors, not
-universal equivalence, side-channel resistance, or full memory erasure.
+The reference WOTS+ code is compiled unchanged: secret-key expansion, chains,
+checksum, signing, and reconstruction. All inputs are public test data. This
+validates the selected vectors, not universal equivalence, side-channel
+resistance, or full memory erasure.
 """
 
 import argparse
@@ -46,43 +46,19 @@ def checked_source(work: Path, existing: Path | None) -> Path:
     return source
 
 
-def adapt_expansion(source: Path, work: Path) -> Path:
-    original_bytes = (source / "wots.c").read_bytes()
-    if hashlib.sha256(original_bytes).hexdigest() != WOTS_SHA256:
-        raise ValueError("Pinned wots.c content hash differs")
-    original = original_bytes.decode()
-    start = original.index("static void expand_seed(")
-    end = original.index("\n/**", start)
-    adapter = """static void expand_seed(const xmss_params *params,
-                        unsigned char *outseeds, const unsigned char *inseed,
-                        const unsigned char *pub_seed, uint32_t addr[8])
-{
-    unsigned char index_bytes[32];
-    (void)pub_seed;
-    (void)addr;
-    for (uint32_t i = 0; i < params->wots_len; i++) {
-        ull_to_bytes(index_bytes, 32, i);
-        prf(params, outseeds + i * params->n, index_bytes, inseed);
-    }
-}
-"""
-    adapted = work / "wots_standalone.c"
-    adapted.write_text(original[:start] + adapter + original[end:])
-    return adapted
-
-
 def check_reference(root: Path, work: Path, source: Path):
-    adapted = adapt_expansion(source, work)
-    source_files = ["hash.c", "hash_address.c", "utils.c", "fips202.c"]
-    for path in [source / "wots.c", adapted, *(source / name for name in source_files)]:
-        print(hashlib.sha256(path.read_bytes()).hexdigest(), path.name, flush=True)
+    if hashlib.sha256((source / "wots.c").read_bytes()).hexdigest() != WOTS_SHA256:
+        raise ValueError("Pinned wots.c content hash differs")
+    source_files = ["wots.c", "hash.c", "hash_address.c", "utils.c", "fips202.c"]
+    for name in source_files:
+        print(hashlib.sha256((source / name).read_bytes()).hexdigest(), name, flush=True)
     flags = shlex.split(subprocess.check_output(
         ["pkg-config", "--cflags", "--libs", "openssl"], text=True
     ))
     executable = work / "check_reference"
     command = [
         "cc", "-std=c99", "-O2", "-Wall", "-Wextra", "-I", str(source),
-        str(root / "scripts/reference/wots_harness.c"), str(adapted),
+        str(root / "scripts/reference/wots_harness.c"),
         *(str(source / name) for name in source_files),
         *flags, "-o", str(executable),
     ]

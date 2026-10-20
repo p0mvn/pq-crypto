@@ -28,6 +28,22 @@ pub(crate) fn prf(key: &[u8; 32], input: &[u8; 32]) -> [u8; 32] {
     hasher.finalize().into()
 }
 
+/// NIST SP 800-208 section 5.1: SHA-256(toByte(4, 32) || key || public_seed || address).
+/// The prefix is 31 zero bytes followed by 4; the complete hash input is 128 bytes.
+/// Its prefix separates secret-key expansion from every PRF call that derives step
+/// keys and masks, whichever seeds the caller supplies.
+pub(crate) fn prf_keygen(key: &[u8; 32], public_seed: &[u8; 32], address: &[u8; 32]) -> [u8; 32] {
+    let prefix = to_byte(4);
+
+    let mut hasher = Sha256::new();
+    hasher.update(prefix);
+    hasher.update(key);
+    hasher.update(public_seed);
+    hasher.update(address);
+
+    hasher.finalize().into()
+}
+
 /// Converts a single byte to a 32-byte array.
 /// The value is placed in the least significant byte of the array.
 /// The other bytes are set to zero.

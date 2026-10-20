@@ -3,4 +3,4 @@
 
 mod sha2_256;
 
-pub(crate) use sha2_256::{f, prf};
+pub(crate) use sha2_256::{f, prf, prf_keygen};

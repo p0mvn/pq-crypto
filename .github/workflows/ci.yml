@@ -40,7 +40,6 @@ jobs:
 
   vectors-and-reference:
     name: Python vectors and C reference
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: rust
     runs-on: ubuntu-24.04
     steps:

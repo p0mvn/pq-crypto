@@ -2,8 +2,9 @@
 """Derive all 67 WOTS+ public endpoints for fixed public test seeds.
 
 Requires Python 3.10+ and OpenSSL on PATH, with no Python dependencies.
-Uses RFC 8391 sections 3.1.2, 3.1.4, 3.1.7, and 5.1. Every SHA-256 preimage
-is cross-checked with OpenSSL. These are locally generated fixtures, not
+Uses RFC 8391 sections 3.1.2, 3.1.4, and 5.1, with secret chain starts from the
+NIST SP 800-208 section 5.1 key generation PRF. Every SHA-256 preimage is
+cross-checked with OpenSSL. These are locally generated fixtures, not
 RFC-published vectors or C-reference outputs. The hash cross-check does not
 independently verify the interpretation of the RFC.
 
@@ -54,7 +55,8 @@ def derive_endpoints() -> str:
     endpoints = []
     for index in range(67):
         start = sha256_checked(
-            (3).to_bytes(32, "big") + secret_seed + index.to_bytes(32, "big")
+            (4).to_bytes(32, "big") + secret_seed + public_seed
+            + struct.pack(">8I", 0, 0, 0, 0, 0, index, 0, 0)
         )
         endpoints.append(derive_endpoint(start, public_seed, index, 15).hex())
     return "\n".join(endpoints) + "\n"

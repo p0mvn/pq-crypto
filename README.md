@@ -25,6 +25,15 @@ attacker from forging another message merely by advancing the revealed values.
 WOTS+ uses keyed hash steps and XOR masks; this implementation derives each
 step’s key and mask from a public seed and its chain position.
 
+Each secret chain start is derived from the secret seed, the public seed, and
+the chain position, using the key generation PRF of
+[NIST SP 800-208, section 5.1](https://csrc.nist.gov/pubs/sp/800/208/final) and
+the XMSS reference implementation. That PRF hashes a different prefix from the
+step PRF, so secret values and public step values never share an input space.
+RFC 8391 section 3.1.7 describes a simpler, informative derivation from the
+secret seed and chain index alone; this crate does not use it, so its keys
+differ from that method’s for the same seeds.
+
 Each signature is `67 × 32 = 2,144` bytes. The full public key is 2,176 bytes:
 a 32-byte public seed followed by 67 endpoints. These are raw library encodings,
 without algorithm identifiers or RFC Appendix A envelopes.
@@ -76,15 +85,21 @@ cargo run --locked --example sign_verify
 
 `SigningKey::generate` accepts any caller-supplied `rand_core::TryCryptoRng`.
 For seed import, use `SigningKey::from_seeds(SecretSeed, PublicSeed)` with fresh,
-independent 32-byte seeds; equal seeds are rejected. `to_bytes()` serializes
+independent 32-byte seeds. Equal seeds are rejected, because the public seed is
+published in the verifying key. `to_bytes()` serializes
 public keys and signatures, and `TryFrom<&[u8]>` rejects incorrect lengths.
 Parsing a signature does not verify it.
 
 **Use each signing key once.** `sign_digest` consumes the Rust object, but it
 cannot prevent recreating the same key from saved seeds. Callers must prevent
 reuse across restarts, backups, and devices. Keep the resulting signature for
-retries or rebroadcasts; verification can be repeated freely. Callers also own
-message hashing, network or transaction context, and public-key authentication.
+retries or rebroadcasts; verification can be repeated freely. Re-signing the
+same digest is safe because signing is deterministic, but signing a second,
+different digest lets an observer forge signatures cheaply. If your protocol must
+re-sign with changed fields, such as a new fee or expiry, bare WOTS+ is the wrong
+primitive: use a stateful many-time scheme such as XMSS or LMS, or a Merkle tree
+of WOTS+ keys. Callers also own message hashing, network or transaction context,
+and public-key authentication.
 
 ## Further reading and validation
 

@@ -99,10 +99,12 @@ So every step has its own key and mask, derived from the public seed and the ste
    * a secret `S` which stays private
    * a public seed `P` which is included in the private key
 
-They must not be equal. Checking inequality catches accidental equality; the seeds must still be generated independently
+They must not be equal: the public seed is published in the verifying key, so a secret seed equal to it would be public too. Checking inequality catches accidental equality; the seeds must still be generated independently
 
-2. Derive the secret start of each chain: `x[i] = PRF(S, BE32(i))` for i = 0..66
-  * BE32(i) means the chain number i written as exactly 32 bytes in big-endian order.
+2. Derive the secret start of each chain: `x[i] = PRF_keygen(S, P || context(chain=i, step=0, selector=0))` for i = 0..66
+  * `PRF_keygen(key, input) = SHA-256(toByte(4, 32) || key || input)`, from NIST SP 800-208 section 5.1 and the XMSS reference implementation.
+  * The step PRF hashes prefix 3 instead of 4, so a secret start can never equal a step key or mask, whichever seeds are used.
+  * RFC 8391 section 3.1.7 describes `PRF(S, BE32(i))` instead, as an informative example; this crate does not use it.
   * 67 = 64 chains for the message digest + 3 chains for its checksum
   * Each chain signs one hexadecimal digit of n (32), 2 hex digits per byte
   * For checksum, 960 is the largest possible checksumL there are 64 message digits, each contributes at most 15
@@ -110,17 +112,19 @@ They must not be equal. Checking inequality catches accidental equality; the see
   * 64 x 15 = 960 = 0x3c0 in hex
 
 ```bash
-                         Secret seed S
+                 Secret seed S, public seed P
                                │
           ┌────────────────────┼────────────────────┐
           ▼                    ▼                    ▼
- PRF(S, BE32(0))       PRF(S, BE32(1))      … PRF(S, BE32(66))
+ PRF_keygen(S, P‖c0)   PRF_keygen(S, P‖c1)  … PRF_keygen(S, P‖c66)
           │                    │                    │
           ▼                    ▼                    ▼
          x[0]                 x[1]                 x[66]
        32 bytes             32 bytes              32 bytes
        SECRET               SECRET                SECRET
 ```
+
+Here `ci` is the context for chain i, step 0, key selector 0.
 
 
 3. Starting from each x[i], perform all 15 WOTS+ chain steps to obtain its public endpoint
