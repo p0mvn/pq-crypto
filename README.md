@@ -1,133 +1,105 @@
 # Standalone WOTS+
 
-This project implements a standalone Rust library for WOTS+, the
-Winternitz one-time signature construction described in
-[RFC 8391](https://www.rfc-editor.org/rfc/rfc8391.html#section-3.1). Its eventual
-purpose is to support a Zakura custom-network experiment, followed by wallet
-integration in Vizor.
+WOTS+ (Winternitz One-Time Signature Plus) is a digital signature scheme built
+from cryptographic hash functions. Each key signs one message; anyone with its
+public key can verify the signature. This Rust crate implements the fixed
+`WOTSP-SHA2_256` profile in [RFC 8391, section 3.1](https://www.rfc-editor.org/rfc/rfc8391.html#section-3.1).
+The original construction is described in Andreas Hülsing’s paper,
+[“W-OTS+ — Shorter Signatures for Hash-Based Signature Schemes”](https://huelsing.files.wordpress.com/2013/05/wotsspr.pdf).
 
-The fixed `WOTSP-SHA2_256` profile is implemented: random key generation,
-seed import and expansion, public-key generation, consuming signing,
-verification, and exact-length public encoding and parsing. Keys, signatures,
-and message digests are exported at the crate root. Rust 1.97 is the minimum
-supported version; `rust-toolchain.toml` selects the 1.97.1 patch release.
+## How it works
 
-Run the public sign/serialize/parse/verify example with operating-system randomness:
+A key contains secret starting values for a set of hash chains. The public key
+contains their endpoints. Signing reveals one value along each chain, at a
+position chosen by a message digit. Verification hashes forward from those
+values and checks that every chain reaches its expected endpoint:
 
-```bash
-cargo run --example sign_verify
-cargo test --locked
-cargo clippy --all-targets -- -D warnings
+```text
+secret start ── signing steps ──> signature value ── verification steps ──> public endpoint
+position 0                       position d                              position 15
 ```
 
-The example signs the SHA-256 digest of `b"0xtest"`. Message hashing belongs to
-the caller. The library accepts a 32-byte digest; it does not impose a network
-or transaction format. `getrandom` supplies the example's OS RNG as a development
-only dependency; library callers supply their own `TryCryptoRng`.
+Here, a 32-byte digest gives 64 hexadecimal digits. A checksum adds three more
+(maximum `64 × 15 = 960 = 0x3c0`), giving 67 chains. The checksum prevents an
+attacker from forging another message merely by advancing the revealed values.
+WOTS+ uses keyed hash steps and XOR masks; this implementation derives each
+step’s key and mask from a public seed and its chain position.
 
-## Code layout
+Each signature is `67 × 32 = 2,144` bytes. The full public key is 2,176 bytes:
+a 32-byte public seed followed by 67 endpoints. These are raw library encodings,
+without algorithm identifiers or RFC Appendix A envelopes.
 
-- `src/key.rs`: seeds, signing keys, verifying keys, and key errors.
-- `src/signature.rs`: message digests, signatures, and fixed-array signature encoding.
-- `src/encoding.rs`: exact-length slice parsing and decoding errors.
-- `src/params.rs`: the fixed 32-byte, base-16 profile parameters.
-- `src/digits.rs`: message digits and checksum.
-- `src/address.rs`: standalone WOTS+ address encoding.
-- `src/chain.rs`: bounded chain traversal.
-- `src/hash/`: internal hash operations, currently implemented with SHA-256.
+## Using the API
+
+The crate requires Rust 1.97 or later; the repository pins 1.97.1. The package
+name is `wots-plus`; Rust code imports it as `wots_plus`. It is currently
+unpublished, so use a local path dependency when calling it from another crate.
+The snippets below use `sha2` 0.11 and `getrandom` 0.4 with its `sys_rng` feature,
+which are already configured in this repository.
+
+Generate a signing key and save its public key:
 
 ```rust
-use wots::{MessageDigest, PublicSeed, SecretSeed, Signature, SigningKey, VerifyingKey};
+use wots_plus::SigningKey;
+
+let key = SigningKey::generate(&mut getrandom::SysRng)
+    .expect("system randomness must be available");
+let public_bytes = key.verifying_key().to_bytes();
 ```
 
-WOTS+ operations depend on the internal `hash` module. Only its SHA-256
-implementation imports `sha2`; future hash profiles can be introduced at
-that boundary. The current API and encodings still select the fixed
-`WOTSP-SHA2_256` profile; callers cannot select a different hash yet.
+Hash the message and sign its digest. Signing consumes the key:
 
-## Start here
+```rust
+use sha2::{Digest, Sha256};
+use wots_plus::MessageDigest;
 
-1. Read [the construction walkthrough](docs/construction.md). It explains the
-   chains, the checksum, the WOTS+ hash context, and how signing and verification
-   fit together.
-2. Read [the crate plan and API contracts](docs/plan.md). It defines the
-   types, ownership rules, public encodings, errors, and implementation contracts and validation checks.
+let digest = MessageDigest::from_bytes(Sha256::digest(b"0xtest").into());
+let signature_bytes = key.sign_digest(&digest).to_bytes();
+```
 
-The walkthrough assumes familiarity with Rust and the idea of a cryptographic
-hash. It introduces the signature-specific terminology as it is needed.
+Parse the public data and verify against the same digest. The receiver must
+authenticate the expected public key before trusting the result:
 
-## Selected baseline
+```rust
+use wots_plus::{Signature, VerifyingKey};
 
-| Choice | Value |
-| --- | --- |
-| Construction | RFC 8391 WOTS+, `WOTSP-SHA2_256` |
-| Hash | SHA-256 through an existing Rust implementation |
-| Element size, `n` | 32 bytes |
-| Winternitz base, `w` | 16 |
-| Message input | One caller-supplied 32-byte value |
-| Message chains | 64 |
-| Checksum chains | 3 |
-| Signature payload | 67 elements, 2,144 bytes |
-| Public key | All 67 endpoints plus the public seed |
-| Raw verifying-key encoding | 2,176 bytes |
+let public = VerifyingKey::try_from(public_bytes.as_slice()).unwrap();
+let signature = Signature::try_from(signature_bytes.as_slice()).unwrap();
+public.verify_digest(&digest, &signature).unwrap();
+```
 
-The two byte counts describe the library payloads. They exclude
-algorithm identifiers, network envelopes, scripts, and transactions. The public
-key is deliberately uncompressed for the first version so the relationship
-between its endpoints and the signature stays visible.
-
-## The rule that shapes the API
-
-Each signing key is for one signature operation. Signing two different values
-with the same underlying key violates the construction's security assumption.
-The signing method consumes its Rust signing-key object.
-
-That ownership rule cannot prevent recreating the key from the same seeds in a
-second process, after a backup restore, or on another device. Future callers
-must prevent such reuse. Rechecking or rebroadcasting an existing signature
-does not create a new signature.
-
-## Validation and secret handling
-
-Tests cover fixed hash/chain/signature vectors, RNG failures on either fill,
-equal-seed rejection, every signature and endpoint byte, malformed slice lengths,
-serialized sign/verify, and compile-time restrictions on secret cloning/debugging
-and signing-key reuse. Local generators and fixture provenance are in
-[`tests/data/README.md`](tests/data/README.md).
-
-The pinned XMSS C reference cross-check compares all 67 public endpoints and
-five complete signatures, reconstructs current Rust signatures in C, and checks
-wrong-digest and modified-signature cases:
+Run the [complete example](examples/sign_verify.rs):
 
 ```bash
-python3 scripts/check_c_reference.py
+cargo run --locked --example sign_verify
 ```
 
-It requires Python 3.10+, git, a C compiler, pkg-config, OpenSSL development
-files, Cargo, and rustc. It downloads an exact pinned reference into a temporary
-directory. To reuse a clean checkout at that pin, pass `--reference-dir PATH`.
-Only its optional secret expansion is adapted to the chosen standalone method;
-the chain, checksum, signing, and reconstruction routines remain unchanged.
+`SigningKey::generate` accepts any caller-supplied `rand_core::TryCryptoRng`.
+For seed import, use `SigningKey::from_seeds(SecretSeed, PublicSeed)` with fresh,
+independent 32-byte seeds; equal seeds are rejected. `to_bytes()` serializes
+public keys and signatures, and `TryFrom<&[u8]>` rejects incorrect lengths.
+Parsing a signature does not verify it.
 
-Secret seeds, derived starts, and managed chain buffers use zeroizing storage.
-SHA-256's `zeroize` feature clears managed hash state on drop. Cleanup cannot
-guarantee erasure of caller copies, compiler-generated temporaries, or registers.
-Seed equality uses ordinary equality. Verification accumulates all endpoint-byte
-differences without early mismatch returns; neither comparison claims
-constant-time machine code. No side-channel qualification or independent audit
-is claimed.
+**Use each signing key once.** `sign_digest` consumes the Rust object, but it
+cannot prevent recreating the same key from saved seeds. Callers must prevent
+reuse across restarts, backups, and devices. Keep the resulting signature for
+retries or rebroadcasts; verification can be repeated freely. Callers also own
+message hashing, network or transaction context, and public-key authentication.
 
-## Boundaries
+## Further reading and validation
 
-The crate implements the fixed-profile standalone primitive and its public encodings.
-Compact-key compression, Merkle trees,
-wallet derivation, durable signing state, transaction hashing, Zakura opcodes,
-network deployment, Vizor changes, and PIR changes are outside this phase.
+Read the [proof notes](docs/notes.md) for security intuition. Generate the API
+documentation with `cargo doc --no-deps --open` for method contracts and types.
 
-The signature library authenticates a supplied value. It does not hide wallet
-queries or on-chain transactions. The distinction between signatures, address
-rotation, and private lookups is explained in the
-[Zakura article motivating the experiment](https://zakura.com/engineering/transparent-pir-rotating-addresses/).
+```bash
+cargo test --locked
+cargo clippy --locked --all-targets -- -D warnings
+```
 
-This is a prototype, not an audited or production-ready implementation. They make no claim that the combined network and wallet flow
-already exists.
+Fixture provenance and reproduction instructions are in
+[tests/data/README.md](tests/data/README.md).
+
+This is an unaudited prototype. Managed secret storage is zeroized on drop,
+with no guarantee of erasing caller copies, compiler temporaries, or registers.
+The crate supplies the standalone signature primitive; Merkle trees, durable
+key-use tracking, wallet integration, and network deployment remain outside its scope.

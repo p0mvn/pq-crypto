@@ -1,10 +1,11 @@
 [package]
-name = "wots"
+name = "wots-plus"
 version = "0.0.0"
 edition = "2024"
 rust-version = "1.97"
-publish = false
+license = "MIT OR Apache-2.0"
 description = "Standalone fixed-profile RFC 8391 WOTS+ signatures"
+exclude = [".cursor/", "docs/notes.md"]
 
 [dependencies]
 rand_core = "0.10.1"

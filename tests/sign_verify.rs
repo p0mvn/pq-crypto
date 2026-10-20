@@ -1,5 +1,5 @@
 use sha2::{Digest, Sha256};
-use wots::{
+use wots_plus::{
     MessageDigest, PublicSeed, SecretSeed, Signature, SigningKey, VerifyError, VerifyingKey,
 };
 

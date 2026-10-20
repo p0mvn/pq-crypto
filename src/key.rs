@@ -16,13 +16,13 @@ pub struct PublicSeed([u8; ELEMENT_BYTES]);
 /// Owned secret storage, cleared on drop. Caller-owned copies cannot be erased here.
 ///
 /// ```compile_fail,E0599
-/// use wots::SecretSeed;
+/// use wots_plus::SecretSeed;
 /// let seed = SecretSeed::from_bytes([0; 32]);
 /// let duplicate = seed.clone();
 /// ```
 ///
 /// ```compile_fail,E0277
-/// use wots::SecretSeed;
+/// use wots_plus::SecretSeed;
 /// let seed = SecretSeed::from_bytes([0; 32]);
 /// println!("{seed:?}");
 /// ```
@@ -31,12 +31,12 @@ pub struct SecretSeed(Zeroizing<[u8; ELEMENT_BYTES]>);
 /// One-time signing secret. Reconstructing it from seeds can bypass object consumption.
 ///
 /// ```compile_fail,E0599
-/// use wots::SigningKey;
+/// use wots_plus::SigningKey;
 /// fn duplicate(key: SigningKey) { let copy = key.clone(); }
 /// ```
 ///
 /// ```compile_fail,E0277
-/// use wots::SigningKey;
+/// use wots_plus::SigningKey;
 /// fn print_secret(key: SigningKey) { println!("{key:?}"); }
 /// ```
 pub struct SigningKey {
@@ -147,7 +147,7 @@ impl SigningKey {
     /// Consumes this key for one signature. Retain the signature for retries.
     ///
     /// ```compile_fail,E0382
-    /// use wots::{MessageDigest, SigningKey};
+    /// use wots_plus::{MessageDigest, SigningKey};
     ///
     /// fn sign_twice(key: SigningKey, digest: &MessageDigest) {
     ///     let _first = key.sign_digest(digest);

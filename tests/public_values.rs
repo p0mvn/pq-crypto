@@ -1,4 +1,4 @@
-use wots::{
+use wots_plus::{
     DIGEST_BYTES, DecodeError, MessageDigest, PublicSeed, SIGNATURE_BYTES, Signature,
     VERIFYING_KEY_BYTES, VerifyingKey,
 };

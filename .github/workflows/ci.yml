@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: Rust
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install the configured Rust toolchain
+        run: |
+          rustup show
+          rustc --version
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --locked
+      - name: Test release build
+        run: cargo test --locked --release
+      - name: Check documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --locked --no-deps
+      - name: Run the sign-and-verify example
+        run: cargo run --locked --example sign_verify
+
+  vectors-and-reference:
+    name: Python vectors and C reference
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: rust
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install the configured Rust toolchain
+        run: |
+          rustup show
+          rustc --version
+      - name: Install validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends python3 build-essential pkg-config libssl-dev openssl
+      - name: Check chain vectors
+        run: python3 scripts/derive_chain_vectors.py --check
+      - name: Check secret-expansion vectors
+        run: python3 scripts/derive_secret_expansion_vectors.py --check
+      - name: Check public-key vectors
+        run: python3 scripts/derive_verifying_key_vectors.py --check
+      - name: Check signature vectors
+        run: python3 scripts/derive_signature_vectors.py --check
+      - name: Cross-check the pinned C reference
+        run: python3 scripts/check_c_reference.py
