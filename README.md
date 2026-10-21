@@ -77,6 +77,14 @@ let signature = Signature::try_from(signature_bytes.as_slice()).unwrap();
 public.verify_digest(&digest, &signature).unwrap();
 ```
 
+A protocol that authenticates a hash commitment to the full public key can
+recover the candidate key with
+`VerifyingKey::recover_from_signature(&digest, &signature, public_seed)`.
+This implements RFC 8391 section 3.1.6, Algorithm 6. It returns a candidate for
+any well-formed signature, including a forgery. Accept only after checking the
+candidate's canonical encoding against an independently authenticated key or
+binding commitment. Reconstruction does not itself establish authenticity.
+
 Run the [complete example](examples/sign_verify.rs):
 
 ```bash

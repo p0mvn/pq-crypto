@@ -225,6 +225,37 @@ impl VerifyingKey {
         bytes
     }
 
+    /// Reconstructs a candidate public key using RFC 8391 section 3.1.6, Algorithm 6.
+    ///
+    /// This always produces a candidate, including for an invalid signature. The
+    /// caller MUST authenticate the result against an independently trusted public
+    /// key or a binding commitment to its canonical encoding before accepting it.
+    /// Uses all message and checksum chains with the fixed standalone address layout.
+    pub fn recover_from_signature(
+        digest: &MessageDigest,
+        signature: &Signature,
+        public_seed: PublicSeed,
+    ) -> Self {
+        let digits = message_digits(digest);
+        let signature_bytes = signature.to_bytes();
+        let elements = signature_bytes.as_chunks::<ELEMENT_BYTES>().0;
+        let endpoints = std::array::from_fn(|index| {
+            let start = u32::from(digits[index]);
+            chain(
+                &elements[index],
+                &public_seed,
+                u32::try_from(index).expect("the fixed chain count fits u32"),
+                start,
+                u32::from(BASE16_MAX) - start,
+            )
+            .expect("message and checksum digits select valid remaining chain steps")
+        });
+        Self {
+            public_seed,
+            endpoints,
+        }
+    }
+
     /// Reconstructs all 67 chain endpoints and checks them against this expected key.
     /// The caller must authenticate this key. Verification borrows both inputs and
     /// may be repeated. Any mismatch returns InvalidSignature without its location.
@@ -235,27 +266,10 @@ impl VerifyingKey {
         digest: &MessageDigest,
         signature: &Signature,
     ) -> Result<(), VerifyError> {
-        let digits = message_digits(digest);
-        let signature_bytes = signature.to_bytes();
+        let candidate = Self::recover_from_signature(digest, signature, self.public_seed.clone());
         let mut difference = 0u8;
-
-        for (index, element) in signature_bytes
-            .as_chunks::<ELEMENT_BYTES>()
-            .0
-            .iter()
-            .enumerate()
-        {
-            let start = digits[index] as u32;
-            let endpoint = chain(
-                element,
-                &self.public_seed,
-                index as u32,
-                start,
-                BASE16_MAX as u32 - start,
-            )
-            .expect("message and checksum digits select valid remaining chain steps");
-
-            for (actual, expected) in endpoint.iter().zip(self.endpoints[index].iter()) {
+        for (actual, expected) in candidate.endpoints.iter().zip(&self.endpoints) {
+            for (actual, expected) in actual.iter().zip(expected) {
                 difference |= actual ^ expected;
             }
         }
