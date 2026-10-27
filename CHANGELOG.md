@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- The crate builds without the standard library (`no_std`), so it runs on
+  microcontrollers such as the Keystone hardware wallet's Cortex-M4F. CI
+  builds it for `thumbv7em-none-eabihf`.
+
 ## [0.1.0-rc2] - 2026-10-27
 
 ### Changed
