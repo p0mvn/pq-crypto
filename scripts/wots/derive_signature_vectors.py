@@ -14,7 +14,7 @@ Reusing these public test seeds across
 fixtures is for testing only and is unsafe for real signing keys.
 
 Prints 67 lowercase hex signature elements for --case (default: patterned).
-With --check, reads and verifies all five tests/data/signature_*.hex files.
+With --check, reads and verifies all five tests/data/wots/signature_*.hex files.
 Does not execute Rust or write files.
 """
 
@@ -83,7 +83,7 @@ def main(argv=None):
     parser.add_argument("--check", action="store_true", help="verify all saved signatures")
     args = parser.parse_args(argv)
     if args.check:
-        data_dir = Path(__file__).resolve().parents[1] / "tests" / "data"
+        data_dir = Path(__file__).resolve().parents[2] / "tests" / "data" / "wots"
         for name, digest in digests.items():
             expected = derive_signature(digest)
             if (data_dir / f"signature_{name}.hex").read_text() != expected:

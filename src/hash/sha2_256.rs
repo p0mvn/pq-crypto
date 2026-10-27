@@ -1,4 +1,4 @@
-//! RFC 8391 SHA-256 instantiation of the WOTS+ hash functions.
+//! SHA-256 instantiation of the RFC 8391 and NIST SP 800-208 hash functions.
 
 use sha2::{Digest, Sha256};
 

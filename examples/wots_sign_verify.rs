@@ -1,5 +1,8 @@
+use pq_crypto::{
+    MessageDigest,
+    wots::{Signature, SigningKey, VerifyingKey},
+};
 use sha2::{Digest, Sha256};
-use wots_plus::{MessageDigest, Signature, SigningKey, VerifyingKey};
 
 fn main() {
     let key = SigningKey::generate(&mut getrandom::SysRng)

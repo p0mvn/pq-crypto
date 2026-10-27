@@ -11,7 +11,7 @@ The fixtures have also been cross-checked against XMSS C reference commit
 `171ccbd26f098542a67eb5d2b128281c80bd71a6`, compiled unchanged: its secret-key
 expansion, chain, checksum, signing, and reconstruction code all take part.
 Reproduce the check with
-`python3 scripts/check_c_reference.py` (see the root README for prerequisites).
+`python3 scripts/wots/check_c_reference.py` (see the root README for prerequisites).
 The harness checks both saved signatures and signatures exported directly from
 the current Rust library, including all 25 cross-digest combinations and
 modified signatures. Reference sources and binaries stay in temporary storage.
@@ -36,10 +36,10 @@ From the repository root, reproduce a signature on stdout or check all saved
 signatures:
 
 ```bash
-python3 scripts/derive_signature_vectors.py --case mixed
-python3 scripts/derive_signature_vectors.py --check
-python3 scripts/derive_verifying_key_vectors.py --check
-cargo test --test sign_verify_vectors
+python3 scripts/wots/derive_signature_vectors.py --case mixed
+python3 scripts/wots/derive_signature_vectors.py --check
+python3 scripts/wots/derive_verifying_key_vectors.py --check
+cargo test --test wots_sign_verify_vectors
 ```
 
 The public API tests compare signing output with every fixture byte, check all

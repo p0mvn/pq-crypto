@@ -1,23 +1,26 @@
 //! Public API tests using locally generated RFC-formula fixtures.
-//! Reproduce with: python3 scripts/derive_signature_vectors.py --check
+//! Reproduce with: python3 scripts/wots/derive_signature_vectors.py --check
 //! These are not RFC-published or C-reference vectors. All seeds are public
 //! test data; recreating a real one-time key for different messages is unsafe.
 
-use wots_plus::{
-    MessageDigest, PublicSeed, SIGNATURE_BYTES, SecretSeed, Signature, SigningKey, VerifyError,
-    VerifyingKey,
+use pq_crypto::{
+    MessageDigest, PublicSeed, SecretSeed,
+    wots::{SIGNATURE_BYTES, Signature, SigningKey, VerifyError, VerifyingKey},
 };
 
 fn vectors() -> [([u8; 32], &'static str); 5] {
     [
-        ([0; 32], include_str!("data/signature_zero.hex")),
-        ([0xff; 32], include_str!("data/signature_maximum.hex")),
+        ([0; 32], include_str!("data/wots/signature_zero.hex")),
+        ([0xff; 32], include_str!("data/wots/signature_maximum.hex")),
         (
             std::array::from_fn(|i| i as u8),
-            include_str!("data/signature_patterned.hex"),
+            include_str!("data/wots/signature_patterned.hex"),
         ),
-        ([0xa7; 32], include_str!("data/signature_mixed.hex")),
-        ([0x0f; 32], include_str!("data/signature_alternating.hex")),
+        ([0xa7; 32], include_str!("data/wots/signature_mixed.hex")),
+        (
+            [0x0f; 32],
+            include_str!("data/wots/signature_alternating.hex"),
+        ),
     ]
 }
 
@@ -96,7 +99,7 @@ fn every_vector_rejects_modifications_to_message_and_checksum_elements() {
 #[test]
 fn reconstruction_matches_independently_derived_endpoints_for_every_vector() {
     let public_seed = PublicSeed::from_bytes(std::array::from_fn(|i| (31 - i) as u8));
-    let fixture = include_str!("data/verifying_key_endpoints.hex");
+    let fixture = include_str!("data/wots/verifying_key_endpoints.hex");
     let endpoints: Vec<u8> = fixture
         .lines()
         .flat_map(|line| {

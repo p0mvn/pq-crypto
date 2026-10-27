@@ -1,10 +1,7 @@
-//! WOTS+ message digests, signatures, and verification.
+//! WOTS+ signatures and verification errors.
 
-use crate::params::{CHAINS, DIGEST_BYTES, ELEMENT_BYTES, SIGNATURE_BYTES};
-
-/// Caller-supplied digest; transaction hashing and network binding belong to the caller.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MessageDigest([u8; DIGEST_BYTES]);
+use crate::params::ELEMENT_BYTES;
+use crate::wots::params::{CHAINS, SIGNATURE_BYTES};
 
 /// Public chain values. Successful parsing alone does not establish validity.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -35,16 +32,6 @@ impl Signature {
             chunk.copy_from_slice(element);
         }
         bytes
-    }
-}
-
-impl MessageDigest {
-    pub fn from_bytes(bytes: [u8; DIGEST_BYTES]) -> Self {
-        Self(bytes)
-    }
-
-    pub fn as_bytes(&self) -> &[u8; DIGEST_BYTES] {
-        &self.0
     }
 }
 

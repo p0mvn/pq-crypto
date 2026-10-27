@@ -3,10 +3,12 @@
 use zeroize::Zeroizing;
 
 use crate::{
-    address::{KeyOrMaskSelector, hash_address},
     hash::{self, prf},
-    key::PublicSeed,
-    params::{BASE16_MAX, CHAINS},
+    seed::PublicSeed,
+    wots::{
+        address::{KeyOrMaskSelector, hash_address},
+        params::{BASE16_MAX, CHAINS},
+    },
 };
 
 /// A chain index or traversal range lies outside the fixed standalone profile.
@@ -19,11 +21,11 @@ pub(crate) enum ChainError {
     InvalidStepCount,
 }
 
-impl From<crate::address::AddressError> for ChainError {
-    fn from(err: crate::address::AddressError) -> Self {
+impl From<crate::wots::address::AddressError> for ChainError {
+    fn from(err: crate::wots::address::AddressError) -> Self {
         match err {
-            crate::address::AddressError::InvalidChainIndex => ChainError::InvalidChainIndex,
-            crate::address::AddressError::InvalidHashStep => ChainError::InvalidHashStep,
+            crate::wots::address::AddressError::InvalidChainIndex => ChainError::InvalidChainIndex,
+            crate::wots::address::AddressError::InvalidHashStep => ChainError::InvalidHashStep,
         }
     }
 }
@@ -198,7 +200,7 @@ mod tests {
         // RFC-derived fixtures:
         // https://www.rfc-editor.org/rfc/rfc8391.html#section-3.1.2 (Algorithm 2)
         // https://www.rfc-editor.org/rfc/rfc8391.html#section-5.1 (SHA-256)
-        // Reproduce: python3 scripts/derive_chain_vectors.py --check
+        // Reproduce: python3 scripts/wots/derive_chain_vectors.py --check
         // Generated independently using recursive Algorithm 2 in Python hashlib;
         // every SHA-256 preimage was cross-checked with openssl dgst -sha256.
         // No Rust helpers or outputs were used to generate the expected values.

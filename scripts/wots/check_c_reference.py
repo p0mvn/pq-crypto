@@ -58,7 +58,7 @@ def check_reference(root: Path, work: Path, source: Path):
     executable = work / "check_reference"
     command = [
         "cc", "-std=c99", "-O2", "-Wall", "-Wextra", "-I", str(source),
-        str(root / "scripts/reference/wots_harness.c"),
+        str(root / "scripts/wots/reference/wots_harness.c"),
         *(str(source / name) for name in source_files),
         *flags, "-o", str(executable),
     ]
@@ -69,19 +69,19 @@ def check_reference(root: Path, work: Path, source: Path):
     run(["cargo", "build", "--quiet", "--locked", "--lib", "--manifest-path",
          str(root / "Cargo.toml"), "--target-dir", str(target)])
     exporter = work / "export_signatures"
-    run(["rustc", "--edition=2024", str(root / "scripts/reference/export_signatures.rs"),
-         "--extern", f"wots_plus={target / 'debug/libwots_plus.rlib'}",
+    run(["rustc", "--edition=2024", str(root / "scripts/wots/reference/export_signatures.rs"),
+         "--extern", f"pq_crypto={target / 'debug/libpq_crypto.rlib'}",
          "-L", f"dependency={target / 'debug/deps'}", "-o", str(exporter)])
     signatures = work / "rust-signatures"
     run([str(exporter), str(signatures)])
-    run([str(executable), str(root / "tests/data"), str(signatures)])
+    run([str(executable), str(root / "tests/data/wots"), str(signatures)])
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference-dir", type=Path, help="existing clean pinned checkout")
     args = parser.parse_args(argv)
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     with tempfile.TemporaryDirectory(prefix="wots-reference-") as directory:
         work = Path(directory)
         source = checked_source(work, args.reference_dir)

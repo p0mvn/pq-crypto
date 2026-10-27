@@ -36,7 +36,7 @@ jobs:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --locked --no-deps
       - name: Run the sign-and-verify example
-        run: cargo run --locked --example sign_verify
+        run: cargo run --locked --example wots_sign_verify
 
   vectors-and-reference:
     name: Python vectors and C reference
@@ -55,12 +55,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends python3 build-essential pkg-config libssl-dev openssl
       - name: Check chain vectors
-        run: python3 scripts/derive_chain_vectors.py --check
+        run: python3 scripts/wots/derive_chain_vectors.py --check
       - name: Check secret-expansion vectors
-        run: python3 scripts/derive_secret_expansion_vectors.py --check
+        run: python3 scripts/wots/derive_secret_expansion_vectors.py --check
       - name: Check public-key vectors
-        run: python3 scripts/derive_verifying_key_vectors.py --check
+        run: python3 scripts/wots/derive_verifying_key_vectors.py --check
       - name: Check signature vectors
-        run: python3 scripts/derive_signature_vectors.py --check
+        run: python3 scripts/wots/derive_signature_vectors.py --check
       - name: Cross-check the pinned C reference
-        run: python3 scripts/check_c_reference.py
+        run: python3 scripts/wots/check_c_reference.py

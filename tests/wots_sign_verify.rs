@@ -1,7 +1,8 @@
-use sha2::{Digest, Sha256};
-use wots_plus::{
-    MessageDigest, PublicSeed, SecretSeed, Signature, SigningKey, VerifyError, VerifyingKey,
+use pq_crypto::{
+    MessageDigest, PublicSeed, SecretSeed,
+    wots::{Signature, SigningKey, VerifyError, VerifyingKey},
 };
+use sha2::{Digest, Sha256};
 
 #[test]
 fn sign_and_verify_test_bytes() {

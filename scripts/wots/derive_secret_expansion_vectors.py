@@ -7,7 +7,7 @@ cross-checks every SHA-256 preimage with OpenSSL. These are not NIST-published
 vectors or C-reference outputs. OpenSSL checks the hashes, not the encoding.
 
 By default, prints a Rust cases array to stdout without changing any files.
-With --check, reads src/key.rs and verifies its fixture tuples instead.
+With --check, reads src/wots/key.rs and verifies its fixture tuples instead.
 Uses only public test seeds and never executes Rust code to derive results.
 """
 
@@ -62,7 +62,7 @@ def rust_array(value: bytes) -> str:
 
 
 def check_fixtures(vectors):
-    source = Path(__file__).resolve().parents[1] / "src" / "key.rs"
+    source = Path(__file__).resolve().parents[2] / "src" / "wots" / "key.rs"
     test = source.read_text().split(
         "fn secret_chain_starts_match_independently_calculated_keygen_prf_vectors()", 1
     )[1]
@@ -74,10 +74,10 @@ def check_fixtures(vectors):
         for secret_seed, public_seed, index, output in vectors
     ]
     if actual != expected:
-        raise ValueError("src/key.rs fixtures differ from independently derived vectors")
+        raise ValueError("src/wots/key.rs fixtures differ from independently derived vectors")
     print(
         f"Verified all {len(vectors)} secret-expansion vectors "
-        "against src/key.rs and OpenSSL."
+        "against src/wots/key.rs and OpenSSL."
     )
 
 

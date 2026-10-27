@@ -1,9 +1,8 @@
-//! Standalone RFC 8391 WOTS+ with a fixed SHA-256, 32-byte, base-16 profile.
+//! Hash-based signatures with a fixed SHA-256, 32-byte profile.
 //!
-//! Supports caller-supplied cryptographic randomness, seed import, public-key
-//! generation, consuming one-time signing, repeatable verification, and exact-length
-//! public encodings. The caller owns digest construction, expected-key authentication,
-//! and prevention of reuse across reconstructed signing keys.
+//! The [`wots`] module implements standalone RFC 8391 WOTS+. The crate root holds
+//! what does not depend on a particular scheme: the public and secret seeds, the
+//! caller-supplied message digest, and the error for exact-length decoding.
 //!
 //! Managed secrets and hash state are cleared on drop. Compiler-generated copies
 //! and registers are outside that guarantee. Comparisons are dependency-free and
@@ -11,16 +10,14 @@
 
 #![forbid(unsafe_code)]
 
-mod address;
-mod chain;
-mod digits;
+mod digest;
 mod encoding;
 mod hash;
-mod key;
 mod params;
-mod signature;
+mod seed;
+pub mod wots;
 
+pub use digest::MessageDigest;
 pub use encoding::DecodeError;
-pub use key::{KeyGenerationError, PublicSeed, SecretSeed, SeedError, SigningKey, VerifyingKey};
-pub use params::{DIGEST_BYTES, SIGNATURE_BYTES, VERIFYING_KEY_BYTES};
-pub use signature::{MessageDigest, Signature, VerifyError};
+pub use params::DIGEST_BYTES;
+pub use seed::{PublicSeed, SecretSeed};
