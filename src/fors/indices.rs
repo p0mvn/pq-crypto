@@ -14,7 +14,9 @@ pub(crate) fn leaf_indices(digest: &IndexDigest) -> [u16; TREES] {
 
     std::array::from_fn(|_| {
         while pending_bits < TREE_HEIGHT {
-            let byte = bytes.next().expect("40 digest bytes hold all 315 index bits");
+            let byte = bytes
+                .next()
+                .expect("40 digest bytes hold all 315 index bits");
             pending = (pending << 8) | u32::from(*byte);
             pending_bits += 8;
         }
@@ -49,7 +51,10 @@ mod tests {
     #[test]
     fn leaf_indices_for_zero_and_maximum_bytes_select_the_first_and_last_leaves() {
         assert_eq!(leaf_indices(&IndexDigest::from_bytes([0; 40])), [0; 35]);
-        assert_eq!(leaf_indices(&IndexDigest::from_bytes([0xff; 40])), [511; 35]);
+        assert_eq!(
+            leaf_indices(&IndexDigest::from_bytes([0xff; 40])),
+            [511; 35]
+        );
     }
 
     #[test]
