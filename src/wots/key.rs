@@ -6,7 +6,7 @@ use zeroize::Zeroizing;
 use crate::digest::MessageDigest;
 use crate::hash::prf_keygen;
 use crate::params::ELEMENT_BYTES;
-use crate::seed::{PublicSeed, SecretSeed};
+use crate::seed::{PublicSeed, SecretSeed, generate_seeds, seeds_are_equal};
 use crate::wots::address::{KeyOrMaskSelector, hash_address};
 use crate::wots::chain::chain;
 use crate::wots::digits::message_digits;
@@ -67,13 +67,9 @@ impl SigningKey {
     pub fn generate<R: TryCryptoRng + ?Sized>(
         rng: &mut R,
     ) -> Result<Self, KeyGenerationError<R::Error>> {
-        let mut secret_seed = SecretSeed(Zeroizing::new([0; ELEMENT_BYTES]));
-        rng.try_fill_bytes(secret_seed.0.as_mut())
-            .map_err(KeyGenerationError::Randomness)?;
-        let mut public_bytes = [0; ELEMENT_BYTES];
-        rng.try_fill_bytes(&mut public_bytes)
-            .map_err(KeyGenerationError::Randomness)?;
-        Self::from_seeds(secret_seed, PublicSeed::from_bytes(public_bytes))
+        let (secret_seed, public_seed) =
+            generate_seeds(rng).map_err(KeyGenerationError::Randomness)?;
+        Self::from_seeds(secret_seed, public_seed)
             .map_err(|SeedError::EqualSeeds| KeyGenerationError::EqualSeeds)
     }
 
@@ -85,11 +81,7 @@ impl SigningKey {
     /// A key rebuilt after it has signed must not sign a different digest; see
     /// [`SigningKey::sign_digest`].
     pub fn from_seeds(secret_seed: SecretSeed, public_seed: PublicSeed) -> Result<Self, SeedError> {
-        let mut difference = 0u8;
-        for (secret, public) in secret_seed.0.iter().zip(public_seed.as_bytes()) {
-            difference |= secret ^ public;
-        }
-        if difference == 0 {
+        if seeds_are_equal(&secret_seed, &public_seed) {
             return Err(SeedError::EqualSeeds);
         }
 
