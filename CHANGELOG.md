@@ -9,6 +9,9 @@
   signing of a 40-byte `IndexDigest`, repeatable verification, candidate-key
   recovery, and exact-length encodings for 11,200-byte signatures and 64-byte
   public keys.
+- The crate builds without the standard library (`no_std`), so it runs on
+  microcontrollers such as the Keystone hardware wallet's Cortex-M4F. CI
+  builds it for `thumbv7em-none-eabihf`.
 - FORS test vectors extracted from NIST's SLH-DSA signing test data, with each
   FORS public key verified up to NIST's public key root.
 

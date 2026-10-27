@@ -140,8 +140,8 @@ mod tests {
     // Public test seeds only.
     fn test_seeds() -> (SecretSeed, PublicSeed) {
         (
-            SecretSeed::from_bytes(std::array::from_fn(|i| i as u8)),
-            PublicSeed::from_bytes(std::array::from_fn(|i| (31 - i) as u8)),
+            SecretSeed::from_bytes(core::array::from_fn(|i| i as u8)),
+            PublicSeed::from_bytes(core::array::from_fn(|i| (31 - i) as u8)),
         )
     }
 

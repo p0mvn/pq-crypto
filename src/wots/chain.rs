@@ -74,7 +74,7 @@ pub(crate) fn chain(
 }
 
 fn xor_bytes(value: &[u8; 32], mask: &[u8; 32]) -> [u8; 32] {
-    std::array::from_fn(|i| value[i] ^ mask[i])
+    core::array::from_fn(|i| value[i] ^ mask[i])
 }
 
 #[cfg(test)]

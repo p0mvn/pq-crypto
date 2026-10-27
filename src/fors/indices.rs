@@ -12,7 +12,7 @@ pub(crate) fn leaf_indices(digest: &IndexDigest) -> [u16; TREES] {
     let mut pending = 0u32;
     let mut pending_bits = 0;
 
-    std::array::from_fn(|_| {
+    core::array::from_fn(|_| {
         while pending_bits < TREE_HEIGHT {
             let byte = bytes
                 .next()

@@ -24,11 +24,11 @@ impl Signature {
     /// signature. Each part is the secret leaf followed by its path from the bottom up.
     pub fn from_bytes(bytes: &[u8; SIGNATURE_BYTES]) -> Self {
         let elements = bytes.as_chunks::<ELEMENT_BYTES>().0;
-        Self(std::array::from_fn(|tree| {
+        Self(core::array::from_fn(|tree| {
             let part = &elements[tree * ELEMENTS_PER_TREE..(tree + 1) * ELEMENTS_PER_TREE];
             TreeSignature {
                 leaf_secret: part[0],
-                auth_path: std::array::from_fn(|height| part[1 + height]),
+                auth_path: core::array::from_fn(|height| part[1 + height]),
             }
         }))
     }
@@ -62,7 +62,7 @@ mod tests {
 
     #[test]
     fn signature_decoding_reads_each_tree_as_a_leaf_then_its_path() {
-        let bytes = std::array::from_fn(|i| element_value(i / 32, i % 32));
+        let bytes = core::array::from_fn(|i| element_value(i / 32, i % 32));
         let signature = Signature::from_bytes(&bytes);
 
         for (tree, part) in signature.0.iter().enumerate() {
@@ -81,10 +81,10 @@ mod tests {
     #[test]
     fn signature_encoding_writes_every_element_in_tree_and_height_order() {
         // Construct the internal values directly, independently of from_bytes.
-        let signature = Signature(std::array::from_fn(|tree| TreeSignature {
-            leaf_secret: std::array::from_fn(|offset| element_value(tree * 10, offset)),
-            auth_path: std::array::from_fn(|height| {
-                std::array::from_fn(|offset| element_value(tree * 10 + 1 + height, offset))
+        let signature = Signature(core::array::from_fn(|tree| TreeSignature {
+            leaf_secret: core::array::from_fn(|offset| element_value(tree * 10, offset)),
+            auth_path: core::array::from_fn(|height| {
+                core::array::from_fn(|offset| element_value(tree * 10 + 1 + height, offset))
             }),
         }));
         let bytes = signature.to_bytes();

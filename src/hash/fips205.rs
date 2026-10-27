@@ -72,7 +72,7 @@ fn sha512_after_seed_block(public_seed: &[u8; 32], address: &[u8; 22]) -> Sha512
 }
 
 fn first_32_bytes(digest: [u8; 64]) -> [u8; 32] {
-    std::array::from_fn(|i| digest[i])
+    core::array::from_fn(|i| digest[i])
 }
 
 #[cfg(test)]
@@ -172,7 +172,7 @@ mod tests {
     #[test]
     fn t_matches_independently_calculated_vectors() {
         // Thirty-five values, as FORS combines its tree roots; value i repeats byte i.
-        let roots: [[u8; 32]; 35] = std::array::from_fn(|i| [i as u8; 32]);
+        let roots: [[u8; 32]; 35] = core::array::from_fn(|i| [i as u8; 32]);
 
         assert_eq!(
             t(&PUBLIC_SEED, &ADDRESS, &roots),
