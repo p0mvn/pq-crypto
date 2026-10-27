@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- A `fors` module with standalone FIPS 205 FORS for the SLH-DSA-SHA2-256f
+  parameters: key generation from caller-supplied randomness or seeds, few-time
+  signing of a 40-byte `IndexDigest`, repeatable verification, candidate-key
+  recovery, and exact-length encodings for 11,200-byte signatures and 64-byte
+  public keys.
+- FORS test vectors extracted from NIST's SLH-DSA signing test data, with each
+  FORS public key verified up to NIST's public key root.
+
 ## [0.1.0-rc2] - 2026-10-27
 
 ### Changed

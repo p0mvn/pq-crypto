@@ -9,6 +9,11 @@ public key can verify the signature. The crate's `wots` module implements the fi
 The original construction is described in Andreas Hülsing’s paper,
 [“W-OTS+ — Shorter Signatures for Hash-Based Signature Schemes”](https://huelsing.files.wordpress.com/2013/05/wotsspr.pdf).
 
+FORS (Forest Of Random Subsets) is the few-time signature that SLH-DSA
+([FIPS 205](https://csrc.nist.gov/pubs/fips/205/final)) uses to sign message
+digests. The crate's `fors` module implements standalone FORS with the
+SLH-DSA-SHA2-256f parameters; see [FORS](#fors) below.
+
 ## How it works
 
 A key contains secret starting values for a set of hash chains. The public key
@@ -44,8 +49,8 @@ without algorithm identifiers or RFC Appendix A envelopes.
 
 The crate requires Rust 1.97 or later; the repository pins 1.97.1. The package
 name is `pq-crypto`; Rust code imports it as `pq_crypto`. WOTS+ types live in
-its `wots` module; seeds, `MessageDigest`, and `DecodeError` are at the crate
-root. Add it with
+its `wots` module and FORS types in its `fors` module; seeds, `MessageDigest`,
+and `DecodeError` are at the crate root. Add it with
 `cargo add pq-crypto@0.1.0-rc2`; release candidates are only selected when the
 version is named. The snippets below use `sha2` 0.11 and `getrandom` 0.4 with its `sys_rng` feature,
 which are already configured in this repository.
@@ -113,9 +118,73 @@ primitive: use a stateful many-time scheme such as XMSS or LMS, or a Merkle tree
 of WOTS+ keys. Callers also own message hashing, network or transaction context,
 and public-key authentication.
 
+## FORS
+
+FORS signs a digest by revealing one secret leaf in each of 35 small Merkle
+trees, chosen by the digest's bits. Next to each leaf it includes the hashes that
+connect the leaf to its tree's root. The verifier rebuilds the 35 roots and hashes
+them into one value, which must equal the public key:
+
+```text
+40-byte digest ── 35 nine-bit indices ──> one leaf per tree ── 9-node path ──> 35 roots ── T_k ──> public root
+```
+
+The `fors` module implements FIPS 205 Algorithms 14 to 17 with the
+SLH-DSA-SHA2-256f parameters. Following FIPS 205 section 11.2.2, secret leaves and
+leaf hashes use SHA-256, and tree nodes and the final combination use SHA-512
+truncated to 32 bytes. Each hash call covers the public seed, a 22-byte address,
+and the data, without the per-step keys and masks of the RFC 8391 WOTS+ module.
+
+FORS signs a 40-byte `IndexDigest`: its first 315 bits are the 35 indices, and its
+last 5 bits are ignored. Each signature is `35 × 10 × 32 = 11,200` bytes: for each
+tree, the revealed secret leaf and the 9 nodes of its authentication path. The
+public key is 64 bytes: the public seed followed by the FORS root. Key generation
+and signing each take about 54,000 hash evaluations; verification takes 351.
+
+The API mirrors WOTS+:
+
+```rust
+use pq_crypto::fors::{INDEX_DIGEST_BYTES, IndexDigest, Signature, SigningKey, VerifyingKey};
+use sha2::{Digest, Sha512};
+
+let key = SigningKey::generate(&mut getrandom::SysRng)
+    .expect("system randomness must be available");
+let public_bytes = key.verifying_key().to_bytes();
+
+// FORS signs 40 bytes; here they are the first 40 bytes of SHA-512.
+let digest = IndexDigest::try_from(&Sha512::digest(b"0xtest")[..INDEX_DIGEST_BYTES]).unwrap();
+let signature_bytes = key.sign_digest(&digest).to_bytes();
+
+let public = VerifyingKey::try_from(public_bytes.as_slice()).unwrap();
+let signature = Signature::try_from(signature_bytes.as_slice()).unwrap();
+public.verify_digest(&digest, &signature).unwrap();
+```
+
+Run the [complete example](examples/fors_sign_verify.rs) with
+`cargo run --locked --example fors_sign_verify`.
+`VerifyingKey::recover_from_signature` rebuilds a candidate key with FIPS 205
+Algorithm 17. As with WOTS+, it returns a candidate for any well-formed signature,
+so authenticate the candidate before trusting it.
+
+**Sign only a few digests with each key.** `sign_digest` borrows the key, because
+FORS tolerates a few signatures, but each one reveals 35 more secret leaves. When
+digests are unpredictable hashes, forging takes about 2^199 attempts after 10
+signatures, 2^87 after 100, and only a few hundred after 1,000. To keep forgery
+above 2^128 attempts, sign at most 42 distinct digests per key, counting signatures
+made from rebuilt seeds. Never sign digests an attacker can choose: two chosen
+digests are enough to forge a third. SLH-DSA avoids both problems by randomizing
+each digest and spreading signatures over 2^68 FORS keys; this standalone module
+leaves both to the caller.
+
+The signer reproduces signatures from NIST's FIPS 205 test data byte for byte; see
+[tests/data/fors/README.md](tests/data/fors/README.md). The
+[FORS onboarding guide](docs/fors-onboarding.md) explains the construction from
+first principles.
+
 ## Further reading and validation
 
-Read the [proof notes](docs/notes.md) for security intuition. Generate the API
+Read the [proof notes](docs/notes.md) for WOTS+ security intuition and the
+[FORS onboarding guide](docs/fors-onboarding.md) for FORS. Generate the API
 documentation with `cargo doc --no-deps --open` for method contracts and types.
 
 ```bash
@@ -124,9 +193,11 @@ cargo clippy --locked --all-targets -- -D warnings
 ```
 
 Fixture provenance and reproduction instructions are in
-[tests/data/wots/README.md](tests/data/wots/README.md).
+[tests/data/wots/README.md](tests/data/wots/README.md) and
+[tests/data/fors/README.md](tests/data/fors/README.md).
 
 This is an unaudited prototype. Managed secret storage is zeroized on drop,
 with no guarantee of erasing caller copies, compiler temporaries, or registers.
-The crate supplies the standalone signature primitive; Merkle trees, durable
-key-use tracking, wallet integration, and network deployment remain outside its scope.
+The crate supplies standalone signature primitives; Merkle trees of WOTS+ keys,
+the SLH-DSA hypertree, durable key-use tracking, wallet integration, and network
+deployment remain outside its scope.

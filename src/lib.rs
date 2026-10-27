@@ -1,8 +1,10 @@
-//! Hash-based signatures with a fixed SHA-256, 32-byte profile.
+//! Hash-based signatures with fixed 32-byte profiles.
 //!
-//! The [`wots`] module implements standalone RFC 8391 WOTS+. The crate root holds
-//! what does not depend on a particular scheme: the public and secret seeds, the
-//! caller-supplied message digest, and the error for exact-length decoding.
+//! The [`wots`] module implements standalone RFC 8391 WOTS+ over SHA-256. The
+//! [`fors`] module implements standalone FIPS 205 FORS with the SLH-DSA-SHA2-256f
+//! parameters, which use SHA-256 and SHA-512. The crate root holds what does not
+//! depend on a particular scheme: the public and secret seeds, the 32-byte message
+//! digest WOTS+ signs, and the error for exact-length decoding.
 //!
 //! Managed secrets and hash state are cleared on drop. Compiler-generated copies
 //! and registers are outside that guarantee. Comparisons are dependency-free and

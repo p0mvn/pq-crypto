@@ -37,6 +37,8 @@ jobs:
         run: cargo doc --locked --no-deps
       - name: Run the sign-and-verify example
         run: cargo run --locked --example wots_sign_verify
+      - name: Run the FORS sign-and-verify example
+        run: cargo run --locked --example fors_sign_verify
 
   vectors-and-reference:
     name: Python vectors and C reference
@@ -64,3 +66,5 @@ jobs:
         run: python3 scripts/wots/derive_signature_vectors.py --check
       - name: Cross-check the pinned C reference
         run: python3 scripts/wots/check_c_reference.py
+      - name: Check FORS vectors against NIST test data
+        run: python3 scripts/fors/nist_vectors.py --check
