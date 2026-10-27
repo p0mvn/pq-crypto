@@ -41,7 +41,9 @@ without algorithm identifiers or RFC Appendix A envelopes.
 ## Using the API
 
 The crate requires Rust 1.97 or later; the repository pins 1.97.1. The package
-name is `wots-plus`; Rust code imports it as `wots_plus`. Add it with
+name is `wots-plus`; Rust code imports it as `wots_plus`. WOTS+ types live in
+its `wots` module; seeds, `MessageDigest`, and `DecodeError` are at the crate
+root. Add it with
 `cargo add wots-plus@0.1.0-rc1`; release candidates are only selected when the
 version is named. The snippets below use `sha2` 0.11 and `getrandom` 0.4 with its `sys_rng` feature,
 which are already configured in this repository.
@@ -49,7 +51,7 @@ which are already configured in this repository.
 Generate a signing key and save its public key:
 
 ```rust
-use wots_plus::SigningKey;
+use wots_plus::wots::SigningKey;
 
 let key = SigningKey::generate(&mut getrandom::SysRng)
     .expect("system randomness must be available");
@@ -70,7 +72,7 @@ Parse the public data and verify against the same digest. The receiver must
 authenticate the expected public key before trusting the result:
 
 ```rust
-use wots_plus::{Signature, VerifyingKey};
+use wots_plus::wots::{Signature, VerifyingKey};
 
 let public = VerifyingKey::try_from(public_bytes.as_slice()).unwrap();
 let signature = Signature::try_from(signature_bytes.as_slice()).unwrap();
@@ -85,10 +87,10 @@ any well-formed signature, including a forgery. Accept only after checking the
 candidate's canonical encoding against an independently authenticated key or
 binding commitment. Reconstruction does not itself establish authenticity.
 
-Run the [complete example](examples/sign_verify.rs):
+Run the [complete example](examples/wots_sign_verify.rs):
 
 ```bash
-cargo run --locked --example sign_verify
+cargo run --locked --example wots_sign_verify
 ```
 
 `SigningKey::generate` accepts any caller-supplied `rand_core::TryCryptoRng`.
@@ -120,7 +122,7 @@ cargo clippy --locked --all-targets -- -D warnings
 ```
 
 Fixture provenance and reproduction instructions are in
-[tests/data/README.md](tests/data/README.md).
+[tests/data/wots/README.md](tests/data/wots/README.md).
 
 This is an unaudited prototype. Managed secret storage is zeroized on drop,
 with no guarantee of erasing caller copies, compiler temporaries, or registers.

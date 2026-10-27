@@ -7,7 +7,7 @@ with OpenSSL. These are not RFC-published vectors or C-reference outputs.
 OpenSSL checks the hashes, not the interpretation of the RFC.
 
 By default, prints a Rust cases array to stdout without changing any files.
-With --check, reads src/chain.rs and verifies its fixture tuples instead.
+With --check, reads src/wots/chain.rs and verifies its fixture tuples instead.
 Only public test data is used. No Rust code is executed to derive results.
 """
 
@@ -80,7 +80,7 @@ def rust_array(value: bytes) -> str:
 
 
 def check_fixtures(vectors):
-    source = Path(__file__).resolve().parents[1] / "src" / "chain.rs"
+    source = Path(__file__).resolve().parents[2] / "src" / "wots" / "chain.rs"
     test = source.read_text().split(
         "fn chain_matches_independently_generated_rfc_formula_vectors()", 1
     )[1]
@@ -92,8 +92,8 @@ def check_fixtures(vectors):
         for _, value, seed, chain, start, steps, output in vectors
     ]
     if actual != expected:
-        raise ValueError("src/chain.rs fixtures differ from independently derived vectors")
-    print(f"Verified all {len(vectors)} chain vectors against src/chain.rs and OpenSSL.")
+        raise ValueError("src/wots/chain.rs fixtures differ from independently derived vectors")
+    print(f"Verified all {len(vectors)} chain vectors against src/wots/chain.rs and OpenSSL.")
 
 
 def main(argv=None):

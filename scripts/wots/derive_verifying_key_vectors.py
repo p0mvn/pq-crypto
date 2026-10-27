@@ -10,7 +10,7 @@ independently verify the interpretation of the RFC.
 
 Secret test seed is bytes 00..1f; public test seed is bytes 1f..00.
 Prints one lowercase hexadecimal endpoint per line, in chain order, to stdout.
-With --check, verifies tests/data/verifying_key_endpoints.hex instead.
+With --check, verifies tests/data/wots/verifying_key_endpoints.hex instead.
 Never executes Rust code or writes files.
 """
 
@@ -69,8 +69,8 @@ def main(argv=None):
     expected = derive_endpoints()
     if args.check:
         fixture = (
-            Path(__file__).resolve().parents[1]
-            / "tests" / "data" / "verifying_key_endpoints.hex"
+            Path(__file__).resolve().parents[2]
+            / "tests" / "data" / "wots" / "verifying_key_endpoints.hex"
         )
         if fixture.read_text() != expected:
             raise ValueError("Saved endpoints differ from independently derived values")

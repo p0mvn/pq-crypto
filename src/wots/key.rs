@@ -3,41 +3,25 @@
 use rand_core::TryCryptoRng;
 use zeroize::Zeroizing;
 
-use crate::address::{KeyOrMaskSelector, hash_address};
-use crate::chain::chain;
-use crate::digits::message_digits;
+use crate::digest::MessageDigest;
 use crate::hash::prf_keygen;
-use crate::params::{BASE16_MAX, CHAINS, ELEMENT_BYTES, VERIFYING_KEY_BYTES};
-use crate::signature::{MessageDigest, Signature, VerifyError};
-
-/// Public seed; constructing this value does not establish its entropy.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PublicSeed([u8; ELEMENT_BYTES]);
-
-/// Owned secret storage, cleared on drop. Caller-owned copies cannot be erased here.
-///
-/// ```compile_fail,E0599
-/// use wots_plus::SecretSeed;
-/// let seed = SecretSeed::from_bytes([0; 32]);
-/// let duplicate = seed.clone();
-/// ```
-///
-/// ```compile_fail,E0277
-/// use wots_plus::SecretSeed;
-/// let seed = SecretSeed::from_bytes([0; 32]);
-/// println!("{seed:?}");
-/// ```
-pub struct SecretSeed(Zeroizing<[u8; ELEMENT_BYTES]>);
+use crate::params::ELEMENT_BYTES;
+use crate::seed::{PublicSeed, SecretSeed};
+use crate::wots::address::{KeyOrMaskSelector, hash_address};
+use crate::wots::chain::chain;
+use crate::wots::digits::message_digits;
+use crate::wots::params::{BASE16_MAX, CHAINS, VERIFYING_KEY_BYTES};
+use crate::wots::signature::{Signature, VerifyError};
 
 /// One-time signing secret. Reconstructing it from seeds can bypass object consumption.
 ///
 /// ```compile_fail,E0599
-/// use wots_plus::SigningKey;
+/// use wots_plus::wots::SigningKey;
 /// fn duplicate(key: SigningKey) { let copy = key.clone(); }
 /// ```
 ///
 /// ```compile_fail,E0277
-/// use wots_plus::SigningKey;
+/// use wots_plus::wots::SigningKey;
 /// fn print_secret(key: SigningKey) { println!("{key:?}"); }
 /// ```
 pub struct SigningKey {
@@ -76,23 +60,6 @@ fn derive_chain_start(
         public_seed.as_bytes(),
         &address,
     )))
-}
-
-impl PublicSeed {
-    pub fn from_bytes(bytes: [u8; ELEMENT_BYTES]) -> Self {
-        Self(bytes)
-    }
-
-    pub fn as_bytes(&self) -> &[u8; ELEMENT_BYTES] {
-        &self.0
-    }
-}
-
-impl SecretSeed {
-    /// Imports fresh secret material; the caller must prevent reuse across keys.
-    pub fn from_bytes(bytes: [u8; ELEMENT_BYTES]) -> Self {
-        Self(Zeroizing::new(bytes))
-    }
 }
 
 impl SigningKey {
@@ -163,7 +130,7 @@ impl SigningKey {
     /// falls in about 2^26. Never re-sign with changed fields such as a fee or expiry.
     ///
     /// ```compile_fail,E0382
-    /// use wots_plus::{MessageDigest, SigningKey};
+    /// use wots_plus::{MessageDigest, wots::SigningKey};
     ///
     /// fn sign_twice(key: SigningKey, digest: &MessageDigest) {
     ///     let _first = key.sign_digest(digest);
@@ -453,30 +420,33 @@ mod tests {
         let expected = VerifyingKey {
             public_seed: PublicSeed::from_bytes(std::array::from_fn(|i| (31 - i) as u8)),
             endpoints: decode_fixture_elements(include_str!(
-                "../tests/data/verifying_key_endpoints.hex"
+                "../../tests/data/wots/verifying_key_endpoints.hex"
             )),
         };
         for (digest_bytes, fixture) in [
-            ([0; 32], include_str!("../tests/data/signature_zero.hex")),
+            (
+                [0; 32],
+                include_str!("../../tests/data/wots/signature_zero.hex"),
+            ),
             (
                 [0xff; 32],
-                include_str!("../tests/data/signature_maximum.hex"),
+                include_str!("../../tests/data/wots/signature_maximum.hex"),
             ),
             (
                 std::array::from_fn(|i| i as u8),
-                include_str!("../tests/data/signature_patterned.hex"),
+                include_str!("../../tests/data/wots/signature_patterned.hex"),
             ),
             (
                 [0xa7; 32],
-                include_str!("../tests/data/signature_mixed.hex"),
+                include_str!("../../tests/data/wots/signature_mixed.hex"),
             ),
             (
                 [0x0f; 32],
-                include_str!("../tests/data/signature_alternating.hex"),
+                include_str!("../../tests/data/wots/signature_alternating.hex"),
             ),
         ] {
             let elements = decode_fixture_elements(fixture);
-            let mut bytes = [0u8; crate::params::SIGNATURE_BYTES];
+            let mut bytes = [0u8; crate::wots::params::SIGNATURE_BYTES];
             for (chunk, element) in bytes
                 .as_chunks_mut::<32>()
                 .0
@@ -547,16 +517,19 @@ mod tests {
     fn signing_matches_all_elements_of_independent_full_signature_vectors() {
         // RFC-derived, not RFC-published or C-reference vectors. Generator uses
         // independent Python formulas with every hash cross-checked by OpenSSL.
-        // Reproduce: python3 scripts/derive_signature_vectors.py --check
+        // Reproduce: python3 scripts/wots/derive_signature_vectors.py --check
         let cases = [
-            ([0; 32], include_str!("../tests/data/signature_zero.hex")),
+            (
+                [0; 32],
+                include_str!("../../tests/data/wots/signature_zero.hex"),
+            ),
             (
                 [0xff; 32],
-                include_str!("../tests/data/signature_maximum.hex"),
+                include_str!("../../tests/data/wots/signature_maximum.hex"),
             ),
             (
                 std::array::from_fn(|i| i as u8),
-                include_str!("../tests/data/signature_patterned.hex"),
+                include_str!("../../tests/data/wots/signature_patterned.hex"),
             ),
         ];
         for (digest_bytes, fixture) in cases {
@@ -699,7 +672,7 @@ mod tests {
         // Locally generated from RFC 8391 sections 3.1.2, 3.1.4, 3.1.7, and 5.1;
         // not RFC-published vectors or C-reference outputs. Public test seeds:
         // secret = 00..1f, public = 1f..00. Each line is an endpoint in chain order.
-        // Reproduce: python3 scripts/derive_verifying_key_vectors.py --check
+        // Reproduce: python3 scripts/wots/derive_verifying_key_vectors.py --check
         let secret_bytes = std::array::from_fn(|i| i as u8);
         let public_bytes = std::array::from_fn(|i| (31 - i) as u8);
         let key = SigningKey::from_seeds(
@@ -709,7 +682,7 @@ mod tests {
         .unwrap();
 
         let actual = key.verifying_key();
-        let expected: Vec<_> = include_str!("../tests/data/verifying_key_endpoints.hex")
+        let expected: Vec<_> = include_str!("../../tests/data/wots/verifying_key_endpoints.hex")
             .lines()
             .collect();
         assert_eq!(expected.len(), 67);
@@ -776,7 +749,7 @@ mod tests {
     fn secret_chain_starts_match_independently_calculated_keygen_prf_vectors() {
         // Locally generated vectors for the NIST SP 800-208 section 5.1 key
         // generation PRF; these are not published NIST vectors or C-reference outputs.
-        // Reproduce: python3 scripts/derive_secret_expansion_vectors.py --check
+        // Reproduce: python3 scripts/wots/derive_secret_expansion_vectors.py --check
         // Python hashlib: SHA256((4).to_bytes(32, "big") + secret_seed + public_seed
         //                        + address of chain index, step 0, key selector).
         // Each complete preimage was cross-checked with openssl dgst -sha256.

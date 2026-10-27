@@ -1,6 +1,6 @@
 //! Standalone WOTS+ addresses with enclosing fields fixed to zero.
 
-use crate::params::{BASE16_MAX, CHAINS};
+use crate::wots::params::{BASE16_MAX, CHAINS};
 
 /// Selects which value to derive for a WOTS+ chain step.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -1,6 +1,7 @@
 use sha2::{Digest, Sha256};
 use wots_plus::{
-    MessageDigest, PublicSeed, SecretSeed, Signature, SigningKey, VerifyError, VerifyingKey,
+    MessageDigest, PublicSeed, SecretSeed,
+    wots::{Signature, SigningKey, VerifyError, VerifyingKey},
 };
 
 #[test]

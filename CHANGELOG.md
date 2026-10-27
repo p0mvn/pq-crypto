@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- WOTS+ types and sizes moved into the `wots` module: import `SigningKey`,
+  `VerifyingKey`, `Signature`, `VerifyError`, `SeedError`, `KeyGenerationError`,
+  `SIGNATURE_BYTES`, and `VERIFYING_KEY_BYTES` from `wots_plus::wots`.
+  `PublicSeed`, `SecretSeed`, `MessageDigest`, `DecodeError`, and `DIGEST_BYTES`
+  stay at the crate root. Keys, encodings, and signatures are unchanged.
+
 ## [0.1.0-rc1] - 2026-10-20
 
 ### Changed

@@ -1,7 +1,8 @@
 //! Base-16 message digits and checksum.
 
-use crate::params::{BASE16_MAX, CHAINS, DIGEST_BYTES};
-use crate::signature::MessageDigest;
+use crate::digest::MessageDigest;
+use crate::params::DIGEST_BYTES;
+use crate::wots::params::{BASE16_MAX, CHAINS};
 
 /// Returns 64 base-16 message digits followed by three checksum digits.
 /// Each byte contributes its high nibble first; checksum digits are most significant first.

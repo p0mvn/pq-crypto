@@ -1,5 +1,5 @@
 use std::{fmt::Write, path::Path};
-use wots_plus::{MessageDigest, PublicSeed, SecretSeed, SigningKey};
+use wots_plus::{MessageDigest, PublicSeed, SecretSeed, wots::SigningKey};
 
 fn main() {
     let directory = std::env::args().nth(1).expect("output directory");
