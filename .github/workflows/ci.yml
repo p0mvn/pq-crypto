@@ -31,6 +31,10 @@ jobs:
         run: cargo test --locked
       - name: Test release build
         run: cargo test --locked --release
+      - name: Build for a no_std target (Cortex-M4F)
+        run: |
+          rustup target add thumbv7em-none-eabihf
+          cargo build --locked --release --target thumbv7em-none-eabihf
       - name: Check documentation
         env:
           RUSTDOCFLAGS: -D warnings

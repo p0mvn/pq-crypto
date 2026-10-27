@@ -127,7 +127,7 @@ impl<const K: usize, const A: usize, const N: usize> SigningKey<K, A, N> {
     ) -> Signature<K, A, N> {
         let indices = digest.indices();
 
-        Signature(std::array::from_fn(|tree| {
+        Signature(core::array::from_fn(|tree| {
             let leaf = forest_leaf::<A>(tree, indices[tree]);
             let leaf_secret =
                 secret_leaf::<K, A, N>(&self.secret_seed, &self.public_seed, position, leaf)
@@ -147,7 +147,7 @@ impl<const K: usize, const A: usize, const N: usize> SigningKey<K, A, N> {
 
     /// Computes the K tree roots for a key at the given position and combines them.
     fn root_at(&self, position: KeyPosition) -> [u8; N] {
-        let roots: [[u8; N]; K] = std::array::from_fn(|tree| {
+        let roots: [[u8; N]; K] = core::array::from_fn(|tree| {
             node::<K, A, N>(
                 &self.secret_seed,
                 &self.public_seed,
@@ -254,7 +254,7 @@ fn recover_root_at<const K: usize, const A: usize, const N: usize>(
     position: KeyPosition,
 ) -> [u8; N] {
     let indices = digest.indices();
-    let roots: [[u8; N]; K] = std::array::from_fn(|tree| {
+    let roots: [[u8; N]; K] = core::array::from_fn(|tree| {
         let part = &signature.0[tree];
         let leaf = forest_leaf::<A>(tree, indices[tree]);
         let leaf_node = leaf_node::<K, A, N>(public_seed, position, leaf, &part.leaf_secret)
@@ -485,14 +485,14 @@ mod tests {
     // Public test seeds only.
     fn test_key() -> SigningKey<35, 9, 32> {
         SigningKey::from_seeds(
-            SecretSeed::from_bytes(std::array::from_fn(|i| i as u8)),
-            PublicSeed::from_bytes(std::array::from_fn(|i| (31 - i) as u8)),
+            SecretSeed::from_bytes(core::array::from_fn(|i| i as u8)),
+            PublicSeed::from_bytes(core::array::from_fn(|i| (31 - i) as u8)),
         )
         .unwrap()
     }
 
     fn patterned_digest() -> IndexDigest<35, 9> {
-        IndexDigest::from_bytes::<40>(std::array::from_fn(|i| (i * 7) as u8))
+        IndexDigest::from_bytes::<40>(core::array::from_fn(|i| (i * 7) as u8))
     }
 
     #[test]
@@ -537,24 +537,24 @@ mod tests {
     fn public_key_encoding_is_the_seed_followed_by_the_root() {
         let key = VerifyingKey::<35, 9, 32> {
             public_seed: PublicSeed::from_bytes([0xa5; 32]),
-            root: std::array::from_fn(|i| i as u8),
+            root: core::array::from_fn(|i| i as u8),
         };
         let encoded: [u8; 64] = key.to_bytes();
 
         assert_eq!(&encoded[..32], &[0xa5; 32]);
         assert_eq!(
             &encoded[32..],
-            &std::array::from_fn::<_, 32, _>(|i| i as u8)
+            &core::array::from_fn::<_, 32, _>(|i| i as u8)
         );
         // Parse independently constructed bytes, so mirrored encoder and decoder bugs
         // cannot pass solely because their round trip agrees.
         let parsed =
-            VerifyingKey::<35, 9, 32>::from_bytes(&std::array::from_fn::<_, 64, _>(|i| i as u8));
+            VerifyingKey::<35, 9, 32>::from_bytes(&core::array::from_fn::<_, 64, _>(|i| i as u8));
         assert_eq!(
             parsed.public_seed.as_bytes(),
-            &std::array::from_fn::<_, 32, _>(|i| i as u8)
+            &core::array::from_fn::<_, 32, _>(|i| i as u8)
         );
-        assert_eq!(parsed.root, std::array::from_fn(|i| (32 + i) as u8));
+        assert_eq!(parsed.root, core::array::from_fn(|i| (32 + i) as u8));
     }
 
     #[test]

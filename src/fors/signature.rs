@@ -50,11 +50,11 @@ impl<const K: usize, const A: usize, const N: usize> Signature<K, A, N> {
     pub(crate) fn from_exact_slice(bytes: &[u8]) -> Self {
         debug_assert_eq!(bytes.len(), Self::BYTES);
         let mut parts = bytes.as_chunks::<N>().0.chunks_exact(1 + A);
-        Self(std::array::from_fn(|_| {
+        Self(core::array::from_fn(|_| {
             let part = parts.next().expect("the signature holds K tree parts");
             TreeSignature {
                 leaf_secret: part[0],
-                auth_path: std::array::from_fn(|height| part[1 + height]),
+                auth_path: core::array::from_fn(|height| part[1 + height]),
             }
         }))
     }
@@ -95,7 +95,7 @@ mod tests {
     /// Checks decoding and encoding against the layout for K trees of height A with
     /// N-byte values, using L = K * (1 + A) * N encoded bytes.
     fn check_layout<const K: usize, const A: usize, const N: usize, const L: usize>() {
-        let bytes: [u8; L] = std::array::from_fn(|i| value_byte(i / N, i % N));
+        let bytes: [u8; L] = core::array::from_fn(|i| value_byte(i / N, i % N));
         let signature = Signature::<K, A, N>::from_bytes(&bytes);
 
         for (tree, part) in signature.0.iter().enumerate() {
@@ -112,12 +112,12 @@ mod tests {
         }
 
         // Construct the internal values directly, independently of from_bytes.
-        let signature = Signature::<K, A, N>(std::array::from_fn(|tree| {
+        let signature = Signature::<K, A, N>(core::array::from_fn(|tree| {
             let first = tree * (1 + A);
             TreeSignature {
-                leaf_secret: std::array::from_fn(|offset| value_byte(first, offset)),
-                auth_path: std::array::from_fn(|height| {
-                    std::array::from_fn(|offset| value_byte(first + 1 + height, offset))
+                leaf_secret: core::array::from_fn(|offset| value_byte(first, offset)),
+                auth_path: core::array::from_fn(|height| {
+                    core::array::from_fn(|offset| value_byte(first + 1 + height, offset))
                 }),
             }
         }));

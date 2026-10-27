@@ -143,8 +143,8 @@ mod tests {
     // Public test seeds only.
     fn test_seeds() -> (SecretSeed, PublicSeed) {
         (
-            SecretSeed::from_bytes(std::array::from_fn(|i| i as u8)),
-            PublicSeed::from_bytes(std::array::from_fn(|i| (31 - i) as u8)),
+            SecretSeed::from_bytes(core::array::from_fn(|i| i as u8)),
+            PublicSeed::from_bytes(core::array::from_fn(|i| (31 - i) as u8)),
         )
     }
 
@@ -330,15 +330,15 @@ mod tests {
     /// height-3 node above it, and from that tree's first leaf likewise, so the
     /// addresses at both ends of the forest agree with node() for this shape.
     fn check_last_tree_climbs<const K: usize, const A: usize, const N: usize>() {
-        let secret_seed = SecretSeed::from_bytes(std::array::from_fn(|i| i as u8));
-        let public_seed = PublicSeed::from_bytes(std::array::from_fn(|i| (31 - i) as u8));
+        let secret_seed = SecretSeed::from_bytes(core::array::from_fn(|i| i as u8));
+        let public_seed = PublicSeed::from_bytes(core::array::from_fn(|i| (31 - i) as u8));
         let position = KeyPosition::STANDALONE;
         let last_tree = K - 1;
         for leaf in [
             forest_leaf::<A>(last_tree, 0),
             forest_leaf::<A>(last_tree, ((1u32 << A) - 1) as u16),
         ] {
-            let path: [[u8; N]; 3] = std::array::from_fn(|height| {
+            let path: [[u8; N]; 3] = core::array::from_fn(|height| {
                 let height = height as u32;
                 node::<K, A, N>(
                     &secret_seed,

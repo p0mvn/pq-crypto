@@ -11,7 +11,7 @@ pub(crate) fn leaf_indices<const K: usize, const A: usize>(digest: &[u8]) -> [u1
     let mut pending = 0u32;
     let mut pending_bits = 0;
 
-    std::array::from_fn(|_| {
+    core::array::from_fn(|_| {
         while pending_bits < A {
             let byte = bytes.next().expect("the digest holds all K * A index bits");
             pending = (pending << 8) | u32::from(*byte);

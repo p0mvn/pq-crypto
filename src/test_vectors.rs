@@ -14,5 +14,5 @@ pub(crate) fn hex_bytes(text: &str) -> Vec<u8> {
 pub(crate) fn hex<const N: usize>(text: &str) -> [u8; N] {
     let bytes = hex_bytes(text);
     assert_eq!(bytes.len(), N, "expected {N} bytes of hex");
-    std::array::from_fn(|i| bytes[i])
+    core::array::from_fn(|i| bytes[i])
 }

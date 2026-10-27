@@ -4,6 +4,9 @@
 
 ### Added
 
+- The crate builds without the standard library (`no_std`), so it runs on
+  microcontrollers such as the Keystone hardware wallet's Cortex-M4F. CI
+  builds it for `thumbv7em-none-eabihf`.
 - A `fors` module with standalone FIPS 205 FORS whose shape is set by const
   parameters: `k` trees of height `a` with `n`-byte hash values, for example
   `SigningKey<22, 14, 32>` for SLH-DSA-SHA2-256s's FORS. Trees may have 1 to 16
