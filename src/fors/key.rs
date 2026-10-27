@@ -234,6 +234,91 @@ pub enum KeyGenerationError<E> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fors::params::SIGNATURE_BYTES;
+    use crate::test_vectors::hex;
+
+    /// One NIST case in the format of tests/data/fors/README.md.
+    struct NistCase {
+        key: SigningKey,
+        digest: IndexDigest,
+        position: KeyPosition,
+        fors_root: [u8; ELEMENT_BYTES],
+        signature: [u8; SIGNATURE_BYTES],
+    }
+
+    fn nist_cases() -> [NistCase; 4] {
+        [
+            include_str!("../../tests/data/fors/nist_tc129.hex"),
+            include_str!("../../tests/data/fors/nist_tc130.hex"),
+            include_str!("../../tests/data/fors/nist_tc441.hex"),
+            include_str!("../../tests/data/fors/nist_tc442.hex"),
+        ]
+        .map(parse_nist_case)
+    }
+
+    fn parse_nist_case(fixture: &str) -> NistCase {
+        let lines: Vec<_> = fixture.lines().collect();
+        assert_eq!(lines.len(), 6 + 350);
+        let elements: Vec<[u8; ELEMENT_BYTES]> = lines[6..].iter().map(|line| hex(line)).collect();
+        NistCase {
+            key: SigningKey::from_seeds(
+                SecretSeed::from_bytes(hex(lines[0])),
+                PublicSeed::from_bytes(hex(lines[1])),
+            )
+            .unwrap(),
+            digest: IndexDigest::from_bytes(hex(lines[2])),
+            position: KeyPosition {
+                tree: u64::from_be_bytes(hex(lines[3])),
+                key_pair: u32::from_be_bytes(hex(lines[4])),
+            },
+            fors_root: hex(lines[5]),
+            signature: std::array::from_fn(|i| elements[i / 32][i % 32]),
+        }
+    }
+
+    #[test]
+    fn signing_reproduces_nist_fors_signatures_byte_for_byte() {
+        for case in nist_cases() {
+            assert_eq!(
+                case.key
+                    .sign_digest_at(&case.digest, case.position)
+                    .to_bytes(),
+                case.signature,
+                "position={:?}",
+                case.position,
+            );
+        }
+    }
+
+    #[test]
+    fn recovering_nist_signatures_gives_their_hypertree_verified_fors_keys() {
+        for case in nist_cases() {
+            let signature = Signature::from_bytes(&case.signature);
+            assert_eq!(
+                recover_root_at(
+                    &case.digest,
+                    &signature,
+                    &case.key.public_seed,
+                    case.position
+                ),
+                case.fors_root,
+                "position={:?}",
+                case.position,
+            );
+        }
+    }
+
+    #[test]
+    fn key_generation_at_nist_positions_gives_the_same_fors_keys() {
+        for case in nist_cases() {
+            assert_eq!(
+                case.key.root_at(case.position),
+                case.fors_root,
+                "position={:?}",
+                case.position,
+            );
+        }
+    }
 
     // Public test seeds only.
     fn test_key() -> SigningKey {

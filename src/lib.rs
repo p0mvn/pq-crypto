@@ -16,6 +16,8 @@ pub mod fors;
 mod hash;
 mod params;
 mod seed;
+#[cfg(test)]
+mod test_vectors;
 pub mod wots;
 
 pub use digest::MessageDigest;

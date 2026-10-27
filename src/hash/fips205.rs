@@ -78,6 +78,7 @@ fn first_32_bytes(digest: [u8; 64]) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_vectors::hex;
 
     // Locally generated vectors for FIPS 205 section 11.2.2 with n = 32, not vectors
     // published by NIST. Expected outputs were calculated with Python hashlib and
@@ -97,11 +98,6 @@ mod tests {
             i += 1;
         }
         bytes
-    }
-
-    fn hex<const N: usize>(text: &str) -> [u8; N] {
-        assert_eq!(text.len(), N * 2);
-        std::array::from_fn(|i| u8::from_str_radix(&text[i * 2..i * 2 + 2], 16).unwrap())
     }
 
     #[test]

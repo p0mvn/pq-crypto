@@ -100,12 +100,7 @@ fn encode(position: KeyPosition, address_type: u32, height: u32, index: u32) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn hex<const N: usize>(text: &str) -> [u8; N] {
-        let text = text.replace(' ', "");
-        assert_eq!(text.len(), N * 2);
-        std::array::from_fn(|i| u8::from_str_radix(&text[i * 2..i * 2 + 2], 16).unwrap())
-    }
+    use crate::test_vectors::hex;
 
     // The worked example in docs/fors-onboarding.md section 7: tree 2, leaf 300,
     // forest leaf 2 * 512 + 300 = 1324, and its ancestor 1324 >> 3 = 165 at height 3.
