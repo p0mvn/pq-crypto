@@ -12,6 +12,7 @@
 
 mod digest;
 mod encoding;
+pub mod fors;
 mod hash;
 mod params;
 mod seed;
