@@ -5,6 +5,7 @@
 
 use wots_plus::{
     MessageDigest, PublicSeed, SIGNATURE_BYTES, SecretSeed, Signature, SigningKey, VerifyError,
+    VerifyingKey,
 };
 
 fn vectors() -> [([u8; 32], &'static str); 5] {
@@ -89,5 +90,62 @@ fn every_vector_rejects_modifications_to_message_and_checksum_elements() {
                 "modified chain={chain_index}",
             );
         }
+    }
+}
+
+#[test]
+fn reconstruction_matches_independently_derived_endpoints_for_every_vector() {
+    let public_seed = PublicSeed::from_bytes(std::array::from_fn(|i| (31 - i) as u8));
+    let fixture = include_str!("data/verifying_key_endpoints.hex");
+    let endpoints: Vec<u8> = fixture
+        .lines()
+        .flat_map(|line| {
+            (0..32).map(move |i| u8::from_str_radix(&line[i * 2..i * 2 + 2], 16).unwrap())
+        })
+        .collect();
+    let mut expected = public_seed.as_bytes().to_vec();
+    expected.extend(endpoints);
+    for (digest, fixture) in vectors() {
+        let candidate = VerifyingKey::recover_from_signature(
+            &MessageDigest::from_bytes(digest),
+            &Signature::from_bytes(&decode_signature(fixture)),
+            public_seed.clone(),
+        );
+        assert_eq!(candidate.to_bytes().as_slice(), expected);
+    }
+}
+
+#[test]
+fn reconstruction_requires_authentication_of_the_candidate_key() {
+    let expected = test_key().verifying_key();
+    let digest = MessageDigest::from_bytes([0xa7; 32]);
+    let signature = Signature::from_bytes(&decode_signature(vectors()[3].1));
+    let recover = |digest: &MessageDigest, signature: &Signature, seed: PublicSeed| {
+        VerifyingKey::recover_from_signature(digest, signature, seed)
+    };
+    assert_ne!(
+        recover(
+            &MessageDigest::from_bytes([0xa6; 32]),
+            &signature,
+            expected.public_seed().clone()
+        ),
+        expected
+    );
+    assert_ne!(
+        recover(&digest, &signature, PublicSeed::from_bytes([0; 32])),
+        expected
+    );
+    for index in 0..67 {
+        let mut changed = signature.to_bytes();
+        changed[index * 32] ^= 1;
+        assert_ne!(
+            recover(
+                &digest,
+                &Signature::from_bytes(&changed),
+                expected.public_seed().clone()
+            ),
+            expected,
+            "a changed message or checksum element must not recover the authenticated key"
+        );
     }
 }
