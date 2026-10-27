@@ -4,7 +4,7 @@ version = "0.1.0-rc2"
 edition = "2024"
 rust-version = "1.97"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/p0mvn/wots-plus"
+repository = "https://github.com/p0mvn/pq-crypto"
 description = "Post-quantum hash-based signatures: standalone fixed-profile RFC 8391 WOTS+"
 exclude = [".cursor/", "docs/notes.md"]
 
