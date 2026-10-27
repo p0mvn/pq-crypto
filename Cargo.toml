@@ -10,7 +10,8 @@ exclude = [".cursor/", "docs/notes.md"]
 
 [dependencies]
 rand_core = "0.10.1"
-sha2 = { version = "0.11.1", features = ["zeroize"] }
+# Matches the RustCrypto pre-releases the Keystone firmware already locks (via bip32).
+sha2 = { version = "=0.11.0-pre.4", default-features = false, features = ["zeroize"] }
 zeroize = "1.8"
 
 [dev-dependencies]
