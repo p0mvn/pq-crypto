@@ -1,4 +1,4 @@
-use wots_plus::{
+use pq_crypto::{
     DecodeError,
     wots::{SIGNATURE_BYTES, Signature, VERIFYING_KEY_BYTES, VerifyingKey},
 };

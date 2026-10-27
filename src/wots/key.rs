@@ -16,12 +16,12 @@ use crate::wots::signature::{Signature, VerifyError};
 /// One-time signing secret. Reconstructing it from seeds can bypass object consumption.
 ///
 /// ```compile_fail,E0599
-/// use wots_plus::wots::SigningKey;
+/// use pq_crypto::wots::SigningKey;
 /// fn duplicate(key: SigningKey) { let copy = key.clone(); }
 /// ```
 ///
 /// ```compile_fail,E0277
-/// use wots_plus::wots::SigningKey;
+/// use pq_crypto::wots::SigningKey;
 /// fn print_secret(key: SigningKey) { println!("{key:?}"); }
 /// ```
 pub struct SigningKey {
@@ -130,7 +130,7 @@ impl SigningKey {
     /// falls in about 2^26. Never re-sign with changed fields such as a fee or expiry.
     ///
     /// ```compile_fail,E0382
-    /// use wots_plus::{MessageDigest, wots::SigningKey};
+    /// use pq_crypto::{MessageDigest, wots::SigningKey};
     ///
     /// fn sign_twice(key: SigningKey, digest: &MessageDigest) {
     ///     let _first = key.sign_digest(digest);

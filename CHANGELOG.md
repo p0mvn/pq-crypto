@@ -1,12 +1,14 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.0-rc2] - 2026-10-27
 
 ### Changed
 
+- The crate is renamed from `wots-plus` to `pq-crypto`; Rust code imports it as
+  `pq_crypto`. Releases 0.1.0-rc0 and 0.1.0-rc1 were published as `wots-plus`.
 - WOTS+ types and sizes moved into the `wots` module: import `SigningKey`,
   `VerifyingKey`, `Signature`, `VerifyError`, `SeedError`, `KeyGenerationError`,
-  `SIGNATURE_BYTES`, and `VERIFYING_KEY_BYTES` from `wots_plus::wots`.
+  `SIGNATURE_BYTES`, and `VERIFYING_KEY_BYTES` from `pq_crypto::wots`.
   `PublicSeed`, `SecretSeed`, `MessageDigest`, `DecodeError`, and `DIGEST_BYTES`
   stay at the crate root. Keys, encodings, and signatures are unchanged.
 

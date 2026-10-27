@@ -70,7 +70,7 @@ def check_reference(root: Path, work: Path, source: Path):
          str(root / "Cargo.toml"), "--target-dir", str(target)])
     exporter = work / "export_signatures"
     run(["rustc", "--edition=2024", str(root / "scripts/wots/reference/export_signatures.rs"),
-         "--extern", f"wots_plus={target / 'debug/libwots_plus.rlib'}",
+         "--extern", f"pq_crypto={target / 'debug/libpq_crypto.rlib'}",
          "-L", f"dependency={target / 'debug/deps'}", "-o", str(exporter)])
     signatures = work / "rust-signatures"
     run([str(exporter), str(signatures)])

@@ -3,7 +3,7 @@
 //! These are not RFC-published or C-reference vectors. All seeds are public
 //! test data; recreating a real one-time key for different messages is unsafe.
 
-use wots_plus::{
+use pq_crypto::{
     MessageDigest, PublicSeed, SecretSeed,
     wots::{SIGNATURE_BYTES, Signature, SigningKey, VerifyError, VerifyingKey},
 };

@@ -1,4 +1,4 @@
-use wots_plus::{DIGEST_BYTES, DecodeError, MessageDigest, PublicSeed};
+use pq_crypto::{DIGEST_BYTES, DecodeError, MessageDigest, PublicSeed};
 
 #[test]
 fn digest_preserves_supplied_bytes() {

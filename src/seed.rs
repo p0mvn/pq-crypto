@@ -11,13 +11,13 @@ pub struct PublicSeed(pub(crate) [u8; ELEMENT_BYTES]);
 /// Owned secret storage, cleared on drop. Caller-owned copies cannot be erased here.
 ///
 /// ```compile_fail,E0599
-/// use wots_plus::SecretSeed;
+/// use pq_crypto::SecretSeed;
 /// let seed = SecretSeed::from_bytes([0; 32]);
 /// let duplicate = seed.clone();
 /// ```
 ///
 /// ```compile_fail,E0277
-/// use wots_plus::SecretSeed;
+/// use pq_crypto::SecretSeed;
 /// let seed = SecretSeed::from_bytes([0; 32]);
 /// println!("{seed:?}");
 /// ```

@@ -1,8 +1,10 @@
-# Standalone WOTS+
+# pq-crypto
+
+Post-quantum, hash-based signatures for Rust.
 
 WOTS+ (Winternitz One-Time Signature Plus) is a digital signature scheme built
 from cryptographic hash functions. Each key signs one message; anyone with its
-public key can verify the signature. This Rust crate implements the fixed
+public key can verify the signature. The crate's `wots` module implements the fixed
 `WOTSP-SHA2_256` profile in [RFC 8391, section 3.1](https://www.rfc-editor.org/rfc/rfc8391.html#section-3.1).
 The original construction is described in Andreas Hülsing’s paper,
 [“W-OTS+ — Shorter Signatures for Hash-Based Signature Schemes”](https://huelsing.files.wordpress.com/2013/05/wotsspr.pdf).
@@ -41,17 +43,17 @@ without algorithm identifiers or RFC Appendix A envelopes.
 ## Using the API
 
 The crate requires Rust 1.97 or later; the repository pins 1.97.1. The package
-name is `wots-plus`; Rust code imports it as `wots_plus`. WOTS+ types live in
+name is `pq-crypto`; Rust code imports it as `pq_crypto`. WOTS+ types live in
 its `wots` module; seeds, `MessageDigest`, and `DecodeError` are at the crate
 root. Add it with
-`cargo add wots-plus@0.1.0-rc1`; release candidates are only selected when the
+`cargo add pq-crypto@0.1.0-rc2`; release candidates are only selected when the
 version is named. The snippets below use `sha2` 0.11 and `getrandom` 0.4 with its `sys_rng` feature,
 which are already configured in this repository.
 
 Generate a signing key and save its public key:
 
 ```rust
-use wots_plus::wots::SigningKey;
+use pq_crypto::wots::SigningKey;
 
 let key = SigningKey::generate(&mut getrandom::SysRng)
     .expect("system randomness must be available");
@@ -62,7 +64,7 @@ Hash the message and sign its digest. Signing consumes the key:
 
 ```rust
 use sha2::{Digest, Sha256};
-use wots_plus::MessageDigest;
+use pq_crypto::MessageDigest;
 
 let digest = MessageDigest::from_bytes(Sha256::digest(b"0xtest").into());
 let signature_bytes = key.sign_digest(&digest).to_bytes();
@@ -72,7 +74,7 @@ Parse the public data and verify against the same digest. The receiver must
 authenticate the expected public key before trusting the result:
 
 ```rust
-use wots_plus::wots::{Signature, VerifyingKey};
+use pq_crypto::wots::{Signature, VerifyingKey};
 
 let public = VerifyingKey::try_from(public_bytes.as_slice()).unwrap();
 let signature = Signature::try_from(signature_bytes.as_slice()).unwrap();
