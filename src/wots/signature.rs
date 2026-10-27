@@ -47,7 +47,7 @@ mod tests {
     #[test]
     fn signature_decoding_preserves_chain_order_and_byte_order() {
         // Each element identifies its chain and has distinct bytes within it.
-        let bytes = std::array::from_fn(|i| ((i / 32) * 3 + i % 32) as u8);
+        let bytes = core::array::from_fn(|i| ((i / 32) * 3 + i % 32) as u8);
         let signature = Signature::from_bytes(&bytes);
 
         for chain in 0..67 {
@@ -60,8 +60,8 @@ mod tests {
     #[test]
     fn signature_encoding_writes_every_element_in_chain_order() {
         // Construct the internal values directly, independently of from_bytes.
-        let signature = Signature(std::array::from_fn(|chain| {
-            std::array::from_fn(|offset| (chain * 3 + offset) as u8)
+        let signature = Signature(core::array::from_fn(|chain| {
+            core::array::from_fn(|offset| (chain * 3 + offset) as u8)
         }));
         let bytes = signature.to_bytes();
         assert_eq!(bytes.len(), 2144);

@@ -101,7 +101,7 @@ impl SigningKey {
 
     /// Computes all 67 public endpoints without consuming the one-time signing key.
     pub fn verifying_key(&self) -> VerifyingKey {
-        let endpoints = std::array::from_fn(|index| {
+        let endpoints = core::array::from_fn(|index| {
             let start = derive_chain_start(&self.secret_seed, &self.public_seed, index as u32)
                 .expect("endpoint array indices are valid chain indices");
             chain(
@@ -206,7 +206,7 @@ impl VerifyingKey {
         let digits = message_digits(digest);
         let signature_bytes = signature.to_bytes();
         let elements = signature_bytes.as_chunks::<ELEMENT_BYTES>().0;
-        let endpoints = std::array::from_fn(|index| {
+        let endpoints = core::array::from_fn(|index| {
             let start = u32::from(digits[index]);
             chain(
                 &elements[index],
@@ -359,7 +359,7 @@ mod tests {
     fn public_key_encoding_has_a_seed_prefix_and_ordered_endpoints() {
         let public_bytes = [0xa5; 32];
         let endpoints =
-            std::array::from_fn(|chain| std::array::from_fn(|offset| (chain * 3 + offset) as u8));
+            core::array::from_fn(|chain| core::array::from_fn(|offset| (chain * 3 + offset) as u8));
         let key = VerifyingKey {
             public_seed: PublicSeed::from_bytes(public_bytes),
             endpoints,
@@ -377,11 +377,11 @@ mod tests {
         }
         // Parse independently constructed bytes, so mirrored encoder/decoder bugs
         // cannot pass solely because their round trip agrees.
-        let input = std::array::from_fn(|index| (index / 32 * 3 + index % 32) as u8);
+        let input = core::array::from_fn(|index| (index / 32 * 3 + index % 32) as u8);
         let parsed = VerifyingKey::from_bytes(&input);
         assert_eq!(
             parsed.public_seed.as_bytes(),
-            &std::array::from_fn::<_, 32, _>(|i| i as u8)
+            &core::array::from_fn::<_, 32, _>(|i| i as u8)
         );
         for chain in 0..67 {
             for offset in 0..32 {
@@ -396,8 +396,8 @@ mod tests {
     fn signing_test_key() -> SigningKey {
         // Public test seeds only; recreating a real key for multiple digests is unsafe.
         SigningKey::from_seeds(
-            SecretSeed::from_bytes(std::array::from_fn(|i| i as u8)),
-            PublicSeed::from_bytes(std::array::from_fn(|i| (31 - i) as u8)),
+            SecretSeed::from_bytes(core::array::from_fn(|i| i as u8)),
+            PublicSeed::from_bytes(core::array::from_fn(|i| (31 - i) as u8)),
         )
         .unwrap()
     }
@@ -405,9 +405,9 @@ mod tests {
     fn decode_fixture_elements(fixture: &str) -> [[u8; 32]; 67] {
         let lines: Vec<_> = fixture.lines().collect();
         assert_eq!(lines.len(), 67);
-        std::array::from_fn(|index| {
+        core::array::from_fn(|index| {
             assert_eq!(lines[index].len(), 64);
-            std::array::from_fn(|offset| {
+            core::array::from_fn(|offset| {
                 u8::from_str_radix(&lines[index][offset * 2..offset * 2 + 2], 16).unwrap()
             })
         })
@@ -418,7 +418,7 @@ mod tests {
         // Both the signature elements and endpoints come from saved independent
         // Python/OpenSSL fixtures, rather than the Rust signer or key generator.
         let expected = VerifyingKey {
-            public_seed: PublicSeed::from_bytes(std::array::from_fn(|i| (31 - i) as u8)),
+            public_seed: PublicSeed::from_bytes(core::array::from_fn(|i| (31 - i) as u8)),
             endpoints: decode_fixture_elements(include_str!(
                 "../../tests/data/wots/verifying_key_endpoints.hex"
             )),
@@ -433,7 +433,7 @@ mod tests {
                 include_str!("../../tests/data/wots/signature_maximum.hex"),
             ),
             (
-                std::array::from_fn(|i| i as u8),
+                core::array::from_fn(|i| i as u8),
                 include_str!("../../tests/data/wots/signature_patterned.hex"),
             ),
             (
@@ -528,7 +528,7 @@ mod tests {
                 include_str!("../../tests/data/wots/signature_maximum.hex"),
             ),
             (
-                std::array::from_fn(|i| i as u8),
+                core::array::from_fn(|i| i as u8),
                 include_str!("../../tests/data/wots/signature_patterned.hex"),
             ),
         ];
@@ -586,7 +586,7 @@ mod tests {
     fn changing_any_digest_byte_prevents_endpoint_reconstruction() {
         let key = signing_test_key();
         let expected = key.verifying_key();
-        let digest_bytes = std::array::from_fn(|i| i as u8);
+        let digest_bytes = core::array::from_fn(|i| i as u8);
         let signature = key.sign_digest(&MessageDigest::from_bytes(digest_bytes));
 
         for index in 0..32 {
@@ -607,7 +607,7 @@ mod tests {
     fn changing_any_signature_byte_prevents_its_chain_reaching_the_endpoint() {
         let key = signing_test_key();
         let expected = key.verifying_key();
-        let digest = MessageDigest::from_bytes(std::array::from_fn(|i| i as u8));
+        let digest = MessageDigest::from_bytes(core::array::from_fn(|i| i as u8));
         let digits = message_digits(&digest);
         let signature = key.sign_digest(&digest).to_bytes();
 
@@ -673,8 +673,8 @@ mod tests {
         // not RFC-published vectors or C-reference outputs. Public test seeds:
         // secret = 00..1f, public = 1f..00. Each line is an endpoint in chain order.
         // Reproduce: python3 scripts/wots/derive_verifying_key_vectors.py --check
-        let secret_bytes = std::array::from_fn(|i| i as u8);
-        let public_bytes = std::array::from_fn(|i| (31 - i) as u8);
+        let secret_bytes = core::array::from_fn(|i| i as u8);
+        let public_bytes = core::array::from_fn(|i| (31 - i) as u8);
         let key = SigningKey::from_seeds(
             SecretSeed::from_bytes(secret_bytes),
             PublicSeed::from_bytes(public_bytes),
@@ -718,7 +718,7 @@ mod tests {
 
     #[test]
     fn signing_key_rejects_equal_seeds() {
-        for bytes in [[0; 32], [0xff; 32], std::array::from_fn(|i| i as u8)] {
+        for bytes in [[0; 32], [0xff; 32], core::array::from_fn(|i| i as u8)] {
             let result = SigningKey::from_seeds(
                 SecretSeed::from_bytes(bytes),
                 PublicSeed::from_bytes(bytes),
@@ -942,7 +942,7 @@ mod tests {
         // Secret expansion and step key or mask derivation hash different prefixes,
         // so a chain start cannot coincide with a public step value even if one
         // 32-byte value were used as both seeds.
-        for bytes in [[0; 32], [0xff; 32], std::array::from_fn(|i| i as u8)] {
+        for bytes in [[0; 32], [0xff; 32], core::array::from_fn(|i| i as u8)] {
             let secret_seed = SecretSeed::from_bytes(bytes);
             let public_seed = PublicSeed::from_bytes(bytes);
             for index in 0..67 {

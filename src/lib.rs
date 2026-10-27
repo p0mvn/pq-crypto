@@ -8,6 +8,7 @@
 //! and registers are outside that guarantee. Comparisons are dependency-free and
 //! do not guarantee constant-time machine code. This prototype has not been audited.
 
+#![cfg_attr(not(test), no_std)]
 #![forbid(unsafe_code)]
 
 mod digest;
