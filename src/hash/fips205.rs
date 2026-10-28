@@ -1,7 +1,8 @@
-//! SHA2 instantiation of the FIPS 205 tweakable hash functions for n = 16 or n = 32.
+//! SHA2 instantiation of the FIPS 205 tweakable hash functions for n = 16, 24, or 32.
 //!
 //! PRF and F always use SHA-256. H and T_l use SHA-256 for n = 16 (section 11.2.1,
-//! security category 1) and SHA-512 for n = 32 (section 11.2.2, category 5). Every
+//! security category 1) and SHA-512 for n = 24 and n = 32 (section 11.2.2,
+//! categories 3 and 5). Every
 //! input starts with the public seed, zero-padded to one full block of the hash in
 //! use, followed by the 22-byte compressed address; each output is truncated to n
 //! bytes. PRF and F share one formula, as do H and T_l; only the address type
@@ -39,8 +40,8 @@ pub(crate) fn f<const N: usize>(
 }
 
 /// FIPS 205 H, where M_2 is the left value followed by the right value. For n = 16:
-/// Trunc_16(SHA-256(PK.seed || toByte(0, 48) || ADRSc || M_2)). For n = 32:
-/// Trunc_32(SHA-512(PK.seed || toByte(0, 96) || ADRSc || M_2)).
+/// Trunc_16(SHA-256(PK.seed || toByte(0, 48) || ADRSc || M_2)). For n = 24 and
+/// n = 32: Trunc_n(SHA-512(PK.seed || toByte(0, 128 - n) || ADRSc || M_2)).
 pub(crate) fn h<const N: usize>(
     public_seed: &[u8; N],
     address: &[u8; 22],
@@ -96,7 +97,7 @@ mod tests {
     use crate::test_vectors::hex;
 
     // Locally generated vectors for FIPS 205 sections 11.2.1 (n = 16) and 11.2.2
-    // (n = 32), not vectors published by NIST. Expected outputs were calculated with
+    // (n = 24 and n = 32), not vectors published by NIST. Expected outputs were calculated with
     // Python hashlib and cross-checked with openssl dgst. Inputs are runs of
     // consecutive bytes: public seed from 00, secret seed or first value from 20,
     // second value from 60, each n bytes long, and address 40..55.
@@ -257,6 +258,57 @@ mod tests {
         assert_eq!(
             t(&SHORT_PUBLIC_SEED, &ADDRESS, &roots),
             hex("8ec09755096c44d8e3a890ea4cb6794d"),
+        );
+    }
+
+    #[test]
+    fn prf_and_f_for_n_24_keep_24_bytes_of_sha256_over_a_40_byte_pad() {
+        let public_seed: [u8; 24] = consecutive_bytes(0x00);
+        let first: [u8; 24] = consecutive_bytes(0x20);
+
+        for output in [
+            prf(&[0; 24], &[0; 24], &[0; 22]),
+            f(&[0; 24], &[0; 22], &[0; 24]),
+        ] {
+            assert_eq!(
+                output,
+                hex("f23391587f1c9fc48eabd1e95f4caf16f585ef09941b7bc2")
+            );
+        }
+        for output in [
+            prf(&public_seed, &first, &ADDRESS),
+            f(&public_seed, &ADDRESS, &first),
+        ] {
+            assert_eq!(
+                output,
+                hex("761a2fda9eb72677622dfdd7da8573a0877830887527913e")
+            );
+        }
+    }
+
+    #[test]
+    fn h_and_t_for_n_24_keep_24_bytes_of_sha512_over_a_104_byte_pad() {
+        let public_seed: [u8; 24] = consecutive_bytes(0x00);
+        let first: [u8; 24] = consecutive_bytes(0x20);
+        let second: [u8; 24] = consecutive_bytes(0x60);
+        // Seventeen values, as SLH-DSA-SHA2-192s's FORS combines its tree roots.
+        let roots: [[u8; 24]; 17] = std::array::from_fn(|i| [i as u8; 24]);
+
+        assert_eq!(
+            h(&[0; 24], &[0; 22], &[0; 24], &[0; 24]),
+            hex("3b693bd217c3d1ca188c975a8da4b58c5c74e3556be4563c"),
+        );
+        assert_eq!(
+            h(&public_seed, &ADDRESS, &first, &second),
+            hex("a4cbba18e47128b11215d2850d942da3f9cb193869315840"),
+        );
+        assert_eq!(
+            h(&public_seed, &ADDRESS, &second, &first),
+            hex("3f8beb6e1192d853df3da34e83ed106a2be1d31f105e6a13"),
+        );
+        assert_eq!(
+            t(&public_seed, &ADDRESS, &roots),
+            hex("249307f60d07709903937c375869eecc885b783f702c91fb"),
         );
     }
 }

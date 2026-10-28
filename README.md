@@ -13,7 +13,7 @@ FORS (Forest Of Random Subsets) is the few-time signature that SLH-DSA
 ([FIPS 205](https://csrc.nist.gov/pubs/fips/205/final)) uses to sign message
 digests. The crate's `fors` module implements standalone FORS with a
 configurable number of trees, tree height, and hash length, including the
-shapes SLH-DSA-SHA2-256f, 256s, and 128s use; see [FORS](#fors) below.
+shapes SLH-DSA-SHA2-256f, 256s, 192f, 192s, and 128s use; see [FORS](#fors) below.
 
 ## How it works
 
@@ -135,17 +135,19 @@ The `fors` module implements FIPS 205 Algorithms 14 to 17. Every type takes the
 shape as const parameters: `SigningKey<K, A, N>`, `VerifyingKey<K, A, N>` and
 `Signature<K, A, N>` for `k` trees of height `a` with `n`-byte hash values, and
 `IndexDigest<K, A>`. Trees may have 1 to 16 levels, the key at most 2^32
-leaves, and `n` must be 16 or 32; other shapes fail to compile. Following FIPS
-205 section 11.2, secret leaves and leaf hashes use SHA-256; tree nodes and the
-final combination use SHA-512 truncated to 32 bytes when `n = 32`, and SHA-256
-truncated to 16 bytes when `n = 16`. Each hash call covers the public seed, a
-22-byte address, and the data, without the per-step keys and masks of the RFC
-8391 WOTS+ module.
+leaves, and `n` must be 16, 24, or 32; other shapes fail to compile. Following
+FIPS 205 section 11.2, secret leaves and leaf hashes use SHA-256; tree nodes and
+the final combination use SHA-512 truncated to `n` bytes when `n` is 24 or 32,
+and SHA-256 truncated to 16 bytes when `n = 16`. Each hash call covers the
+public seed, a 22-byte address, and the data, without the per-step keys and
+masks of the RFC 8391 WOTS+ module.
 
 | `K, A, N` | Used by | Digest | Signature | Leaves | Safe signatures |
 | --- | --- | --- | --- | --- | --- |
 | `35, 9, 32` | SLH-DSA-SHA2-256f | 40 B | 11,200 B | 17,920 | 42 |
 | `22, 14, 32` | SLH-DSA-SHA2-256s | 39 B | 10,560 B | 360,448 | 292 |
+| `33, 8, 24` | SLH-DSA-SHA2-192f | 33 B | 7,128 B | 8,448 | 17 |
+| `17, 14, 24` | SLH-DSA-SHA2-192s | 30 B | 6,120 B | 278,528 | 88 |
 | `16, 16, 32` | none | 32 B | 8,704 B | 1,048,576 | 256 |
 | `14, 12, 16` | SLH-DSA-SHA2-128s | 21 B | 2,912 B | 57,344 | 7 |
 
@@ -191,13 +193,14 @@ attempts after `q` signatures. With 256f's shape that is about 2^199 after 10
 signatures, 2^87 after 100, and only a few hundred after 1,000. The table's last
 column is the most distinct digests one key can sign while forgery still takes
 2^128 attempts; count signatures made from rebuilt seeds. Shapes with `n = 16`
-offer at most 128-bit security even for one signature. Never sign digests an
+offer at most 128-bit security even for one signature, and shapes with `n = 24`
+at most 192-bit. Never sign digests an
 attacker can choose: two chosen digests are enough to forge a third. SLH-DSA
 avoids both problems by randomizing each digest and spreading signatures over
 many FORS keys; this standalone module leaves both to the caller.
 
-For the 256f, 256s, and 128s shapes, the signer reproduces signatures from NIST's
-FIPS 205 test data byte for byte; see
+For the 256f, 256s, 192f, 192s, and 128s shapes, the signer reproduces
+signatures from NIST's FIPS 205 test data byte for byte; see
 [tests/data/fors/README.md](tests/data/fors/README.md). The
 [FORS onboarding guide](docs/fors-onboarding.md) explains the construction from
 first principles.

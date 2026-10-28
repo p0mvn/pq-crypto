@@ -18,12 +18,12 @@ pub(crate) const fn check_trees(trees: usize, tree_height: usize) {
 }
 
 /// Rejects unsupported shapes as [`check_trees`] does, and hash lengths other than
-/// the two whose hash functions this crate checks against NIST data: n = 16
-/// (SHA-256 only) and n = 32 (SHA-256 and SHA-512).
+/// the three FIPS 205 defines, whose hash functions this crate checks against NIST
+/// data: n = 16 (SHA-256 only), and n = 24 and n = 32 (SHA-256 and SHA-512).
 pub(crate) const fn check_shape(trees: usize, tree_height: usize, n: usize) {
     check_trees(trees, tree_height);
     assert!(
-        n == 16 || n == 32,
-        "FORS hash length n must be 16 or 32 bytes"
+        n == 16 || n == 24 || n == 32,
+        "FORS hash length n must be 16, 24, or 32 bytes"
     );
 }

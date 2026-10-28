@@ -14,6 +14,14 @@ fn sizes_follow_each_shape() {
     assert_eq!(Signature::<22, 14, 32>::BYTES, 10_560);
     assert_eq!(VerifyingKey::<22, 14, 32>::BYTES, 64);
 
+    assert_eq!(IndexDigest::<33, 8>::BYTES, 33);
+    assert_eq!(Signature::<33, 8, 24>::BYTES, 7_128);
+    assert_eq!(VerifyingKey::<33, 8, 24>::BYTES, 48);
+
+    assert_eq!(IndexDigest::<17, 14>::BYTES, 30);
+    assert_eq!(Signature::<17, 14, 24>::BYTES, 6_120);
+    assert_eq!(VerifyingKey::<17, 14, 24>::BYTES, 48);
+
     assert_eq!(IndexDigest::<16, 16>::BYTES, 32);
     assert_eq!(Signature::<16, 16, 32>::BYTES, 8_704);
     assert_eq!(VerifyingKey::<16, 16, 32>::BYTES, 64);
@@ -90,6 +98,8 @@ fn check_signature_round_trip<const K: usize, const A: usize, const N: usize, co
 fn signature_bytes_round_trip_and_own_their_copies_for_each_shape() {
     check_signature_round_trip::<35, 9, 32, 11_200>();
     check_signature_round_trip::<22, 14, 32, 10_560>();
+    check_signature_round_trip::<33, 8, 24, 7_128>();
+    check_signature_round_trip::<17, 14, 24, 6_120>();
     check_signature_round_trip::<16, 16, 32, 8_704>();
     check_signature_round_trip::<14, 12, 16, 2_912>();
 }
@@ -112,6 +122,7 @@ fn check_public_key_round_trip<const K: usize, const A: usize, const N: usize, c
 #[test]
 fn public_key_bytes_and_slices_round_trip_and_own_their_copies_for_each_shape() {
     check_public_key_round_trip::<35, 9, 32, 64>();
+    check_public_key_round_trip::<17, 14, 24, 48>();
     check_public_key_round_trip::<16, 16, 32, 64>();
     check_public_key_round_trip::<14, 12, 16, 32>();
 }
@@ -155,6 +166,8 @@ fn check_slice_lengths<const K: usize, const A: usize, const N: usize>() {
 fn digest_public_key_and_signature_slices_reject_truncation_and_trailing_bytes() {
     check_slice_lengths::<35, 9, 32>();
     check_slice_lengths::<22, 14, 32>();
+    check_slice_lengths::<33, 8, 24>();
+    check_slice_lengths::<17, 14, 24>();
     check_slice_lengths::<16, 16, 32>();
     check_slice_lengths::<14, 12, 16>();
 }

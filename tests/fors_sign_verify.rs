@@ -40,19 +40,21 @@ fn check_sign_and_verify<const K: usize, const A: usize, const N: usize>() {
 }
 
 #[test]
-fn sha2_256f_and_sha2_128s_shapes_sign_and_verify() {
+fn sha2_256f_192f_and_128s_shapes_sign_and_verify() {
     check_sign_and_verify::<35, 9, 32>();
+    check_sign_and_verify::<33, 8, 24>();
     check_sign_and_verify::<14, 12, 16>();
 }
 
-// The larger shapes hash about 1 and 3 million times per key and signature.
+// The larger shapes hash about 0.8 to 3 million times per key and signature.
 #[test]
 #[cfg_attr(
     debug_assertions,
     ignore = "slow in debug builds; CI runs it in release"
 )]
-fn sha2_256s_and_sixteen_trees_of_height_sixteen_sign_and_verify() {
+fn sha2_256s_192s_and_sixteen_trees_of_height_sixteen_sign_and_verify() {
     check_sign_and_verify::<22, 14, 32>();
+    check_sign_and_verify::<17, 14, 24>();
     check_sign_and_verify::<16, 16, 32>();
 }
 
@@ -129,6 +131,7 @@ fn check_every_value_is_checked<const K: usize, const A: usize, const N: usize, 
 #[test]
 fn verification_rejects_a_change_in_any_signature_value() {
     check_every_value_is_checked::<35, 9, 32, 11_200>();
+    check_every_value_is_checked::<33, 8, 24, 7_128>();
     check_every_value_is_checked::<14, 12, 16, 2_912>();
 }
 

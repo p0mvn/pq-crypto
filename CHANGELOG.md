@@ -7,15 +7,16 @@
 - A `fors` module with standalone FIPS 205 FORS whose shape is set by const
   parameters: `k` trees of height `a` with `n`-byte hash values, for example
   `SigningKey<22, 14, 32>` for SLH-DSA-SHA2-256s's FORS. Trees may have 1 to 16
-  levels, a key at most 2^32 leaves, and `n` must be 16 (SHA-256 only) or 32
-  (SHA-256 and SHA-512); other shapes fail to compile. It provides key
+  levels, a key at most 2^32 leaves, and `n` must be 16 (SHA-256 only), 24, or
+  32 (SHA-256 and SHA-512); other shapes fail to compile. It provides key
   generation from caller-supplied randomness or seeds, few-time signing of an
   `IndexDigest`, repeatable verification, candidate-key recovery, and
   exact-length encodings.
 - `PublicSeed` and `SecretSeed` take an optional length, 32 bytes by default, so
-  FORS with `n = 16` can use 16-byte seeds. WOTS+ is unchanged.
-- FORS test vectors extracted from NIST's SLH-DSA-SHA2-256f, 256s, and 128s
-  signing test data, with each FORS public key verified up to NIST's public key
+  FORS with `n = 16` or `n = 24` can use 16- or 24-byte seeds. WOTS+ is
+  unchanged.
+- FORS test vectors extracted from NIST's SLH-DSA-SHA2-256f, 256s, 192f, 192s,
+  and 128s signing test data, with each FORS public key verified up to NIST's public key
   root.
 
 ## [0.1.0-rc2] - 2026-10-27

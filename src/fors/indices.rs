@@ -54,6 +54,8 @@ mod tests {
         assert_eq!(&leaf_indices::<22, 14>(&digest)[..3], &[11479, 250, 1024]);
         // 101100110101 110000001111 10100001...
         assert_eq!(&leaf_indices::<14, 12>(&digest)[..3], &[2869, 3087, 2576]);
+        // One whole byte per index.
+        assert_eq!(&leaf_indices::<33, 8>(&digest)[..3], &[0xb3, 0x5c, 0x0f]);
         // Two whole bytes per index.
         assert_eq!(&leaf_indices::<16, 16>(&digest)[..3], &[0xb35c, 0x0fa1, 0]);
     }
@@ -86,6 +88,8 @@ mod tests {
     fn each_index_bit_sets_one_bit_of_one_index_for_each_shape() {
         check_every_index_bit::<35, 9, 40>();
         check_every_index_bit::<22, 14, 39>();
+        check_every_index_bit::<33, 8, 33>();
+        check_every_index_bit::<17, 14, 30>();
         check_every_index_bit::<16, 16, 32>();
         check_every_index_bit::<14, 12, 21>();
     }

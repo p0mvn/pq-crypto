@@ -2,14 +2,16 @@
 //! `N`-byte hash values, set as const parameters on every type.
 //!
 //! The hash functions follow `N`: n = 16 uses SHA-256 throughout (FIPS 205 section
-//! 11.2.1), and n = 32 uses SHA-256 for PRF and F and truncated SHA-512 for H and T_k
-//! (section 11.2.2). Supported shapes have 1 to 16 levels per tree, at most 2^32
-//! leaves, and n of 16 or 32; others fail to compile. Some shapes:
+//! 11.2.1), and n = 24 and n = 32 use SHA-256 for PRF and F and truncated SHA-512 for
+//! H and T_k (section 11.2.2). Supported shapes have 1 to 16 levels per tree, at most
+//! 2^32 leaves, and n of 16, 24, or 32; others fail to compile. Some shapes:
 //!
 //! | `K, A, N` | Used by | Digest | Signature | Leaves | Safe signatures |
 //! | --- | --- | --- | --- | --- | --- |
 //! | `35, 9, 32` | SLH-DSA-SHA2-256f | 40 B | 11,200 B | 17,920 | 42 |
 //! | `22, 14, 32` | SLH-DSA-SHA2-256s | 39 B | 10,560 B | 360,448 | 292 |
+//! | `33, 8, 24` | SLH-DSA-SHA2-192f | 33 B | 7,128 B | 8,448 | 17 |
+//! | `17, 14, 24` | SLH-DSA-SHA2-192s | 30 B | 6,120 B | 278,528 | 88 |
 //! | `16, 16, 32` | none | 32 B | 8,704 B | 1,048,576 | 256 |
 //! | `14, 12, 16` | SLH-DSA-SHA2-128s | 21 B | 2,912 B | 57,344 | 7 |
 //!
@@ -19,7 +21,8 @@
 //! verification computes `K * (1 + A) + 1` hashes. Safe signatures is the largest
 //! number of distinct, unpredictable digests one key can sign while forgery still
 //! takes 2^128 attempts; see [`SigningKey::sign_digest`]. Shapes with n = 16 offer at
-//! most 128-bit security even for one signature.
+//! most 128-bit security even for one signature, and shapes with n = 24 at most
+//! 192-bit.
 //!
 //! ```
 //! use pq_crypto::fors::{IndexDigest, SigningKey};

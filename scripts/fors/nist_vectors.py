@@ -6,8 +6,9 @@ local copy of the pinned file. No Python packages are needed, and no Rust runs.
 
 In order, it:
 1. reads NIST's pinned ACVP signing file and checks its SHA-256;
-2. takes four cases for each of SHA2-256f, SHA2-256s, and SHA2-128s that use
-   the internal interface, two deterministic and two randomized;
+2. takes four cases for each of SHA2-256f, SHA2-256s, SHA2-192f, SHA2-192s,
+   and SHA2-128s that use the internal interface, two deterministic and two
+   randomized;
 3. recomputes SLH-DSA's message hash from each signature's randomizer, which
    gives the digest FORS signed and the key's position (tree and key pair);
 4. slices the FORS signature out of the full SLH-DSA signature;
@@ -82,6 +83,10 @@ PARAMETER_SETS = (
     ParameterSet("SLH-DSA-SHA2-256f", "sha2_256f", 32, 35, 9, 68, 17, (129, 130, 441, 442)),
     # Test groups 33 (deterministic) and 69 (randomized).
     ParameterSet("SLH-DSA-SHA2-256s", "sha2_256s", 32, 22, 14, 64, 8, (285, 286, 597, 598)),
+    # Test groups 14 (deterministic) and 50 (randomized).
+    ParameterSet("SLH-DSA-SHA2-192f", "sha2_192f", 24, 33, 8, 66, 22, (122, 123, 434, 435)),
+    # Test groups 32 (deterministic) and 68 (randomized).
+    ParameterSet("SLH-DSA-SHA2-192s", "sha2_192s", 24, 17, 14, 63, 7, (278, 279, 590, 591)),
     # Test groups 31 (deterministic) and 67 (randomized).
     ParameterSet("SLH-DSA-SHA2-128s", "sha2_128s", 16, 14, 12, 63, 7, (271, 272, 583, 584)),
 )
@@ -92,7 +97,7 @@ WOTS_HASH, WOTS_PK, TREE, FORS_TREE, FORS_ROOTS = 0, 1, 2, 3, 4
 DATA_DIR = Path(__file__).resolve().parents[2] / "tests" / "data" / "fors"
 
 
-# Hash functions: FIPS 205 sections 11.2.1 (n = 16) and 11.2.2 (n = 32).
+# Hash functions: FIPS 205 sections 11.2.1 (n = 16) and 11.2.2 (n = 24 and n = 32).
 
 
 def address(layer=0, tree=0, address_type=0, key_pair=0, word_6=0, word_7=0):
@@ -112,7 +117,7 @@ def f(public_seed, compressed_address, value):
 
 
 def big_hash(n):
-    """The hash for H, T_l, and H_msg: SHA-256 for n = 16 and SHA-512 for n = 32."""
+    """The hash for H, T_l, and H_msg: SHA-256 for n = 16 and SHA-512 for n = 24 and 32."""
     return hashlib.sha256 if n == 16 else hashlib.sha512
 
 

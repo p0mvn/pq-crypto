@@ -212,6 +212,8 @@ mod tests {
     fn addresses_cover_exactly_the_forest_of_each_shape() {
         check_forest_bounds::<35, 9>();
         check_forest_bounds::<22, 14>();
+        check_forest_bounds::<33, 8>();
+        check_forest_bounds::<17, 14>();
         check_forest_bounds::<16, 16>();
         check_forest_bounds::<14, 12>();
         check_forest_bounds::<1, 1>();

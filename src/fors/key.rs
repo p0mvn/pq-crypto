@@ -26,13 +26,13 @@ use crate::seed::{PublicSeed, SecretSeed, generate_seeds, seeds_are_equal};
 /// fn print_secret(key: SigningKey<35, 9, 32>) { println!("{key:?}"); }
 /// ```
 ///
-/// Shapes outside the supported range fail to compile, here n = 24:
+/// Shapes outside the supported range fail to compile, here n = 20:
 ///
 /// ```compile_fail,E0080
 /// use pq_crypto::{PublicSeed, SecretSeed, fors::SigningKey};
-/// let key = SigningKey::<17, 14, 24>::from_seeds(
-///     SecretSeed::from_bytes([1; 24]),
-///     PublicSeed::from_bytes([2; 24]),
+/// let key = SigningKey::<17, 14, 20>::from_seeds(
+///     SecretSeed::from_bytes([1; 20]),
+///     PublicSeed::from_bytes([2; 20]),
 /// );
 /// ```
 ///
@@ -92,8 +92,8 @@ impl<const K: usize, const A: usize, const N: usize> SigningKey<K, A, N> {
     }
 
     /// Builds all K trees and combines their roots: K * (3 * 2^A - 1) + 1 hash
-    /// evaluations, about 54,000 for SLH-DSA-SHA2-256f's shape and 1.1 million for
-    /// SHA2-256s's.
+    /// evaluations, about 54,000 for SLH-DSA-SHA2-256f's shape, 840,000 for
+    /// SHA2-192s's, and 1.1 million for SHA2-256s's.
     pub fn verifying_key(&self) -> VerifyingKey<K, A, N> {
         VerifyingKey {
             public_seed: self.public_seed.clone(),
@@ -108,8 +108,9 @@ impl<const K: usize, const A: usize, const N: usize> SigningKey<K, A, N> {
     /// A forger needs a digest whose K indices all land on revealed leaves. When
     /// digests are unpredictable hashes, that takes about 1 / (1 - (1 - 2^-A)^q)^K
     /// attempts after q signatures. To keep forgery above 2^128 attempts, sign at most
-    /// 42 distinct digests with SLH-DSA-SHA2-256f's shape, 292 with SHA2-256s's, 256
-    /// with 16 trees of height 16, and 7 with SHA2-128s's; see the table in
+    /// 42 distinct digests with SLH-DSA-SHA2-256f's shape, 292 with SHA2-256s's, 88
+    /// with SHA2-192s's, 17 with SHA2-192f's, 256 with 16 trees of height 16, and 7
+    /// with SHA2-128s's; see the table in
     /// [`crate::fors`]. Count signatures made from rebuilt seeds. Never sign digests an
     /// attacker can choose: two chosen digests let an attacker combine signatures for
     /// any third digest. Signing is deterministic, so signing the same digest again
@@ -341,6 +342,26 @@ mod tests {
         .map(parse_nist_case)
     }
 
+    fn sha2_192f_cases() -> [NistCase<33, 8, 24>; 4] {
+        [
+            include_str!("../../tests/data/fors/sha2_192f_tc122.hex"),
+            include_str!("../../tests/data/fors/sha2_192f_tc123.hex"),
+            include_str!("../../tests/data/fors/sha2_192f_tc434.hex"),
+            include_str!("../../tests/data/fors/sha2_192f_tc435.hex"),
+        ]
+        .map(parse_nist_case)
+    }
+
+    fn sha2_192s_cases() -> [NistCase<17, 14, 24>; 4] {
+        [
+            include_str!("../../tests/data/fors/sha2_192s_tc278.hex"),
+            include_str!("../../tests/data/fors/sha2_192s_tc279.hex"),
+            include_str!("../../tests/data/fors/sha2_192s_tc590.hex"),
+            include_str!("../../tests/data/fors/sha2_192s_tc591.hex"),
+        ]
+        .map(parse_nist_case)
+    }
+
     fn sha2_128s_cases() -> [NistCase<14, 12, 16>; 4] {
         [
             include_str!("../../tests/data/fors/sha2_128s_tc271.hex"),
@@ -408,6 +429,19 @@ mod tests {
     }
 
     #[test]
+    fn signing_reproduces_nist_sha2_192f_fors_signatures_byte_for_byte() {
+        check_signing_reproduces_nist_signatures(&sha2_192f_cases());
+    }
+
+    #[test]
+    fn signing_reproduces_nist_sha2_192s_fors_signatures_byte_for_byte() {
+        // Each 192s signature rebuilds about 840,000 hashes, so check one
+        // deterministic and one randomized case; recovery covers all four positions.
+        let [deterministic, _, randomized, _] = sha2_192s_cases();
+        check_signing_reproduces_nist_signatures(&[deterministic, randomized]);
+    }
+
+    #[test]
     fn signing_reproduces_nist_sha2_128s_fors_signatures_byte_for_byte() {
         check_signing_reproduces_nist_signatures(&sha2_128s_cases());
     }
@@ -416,6 +450,8 @@ mod tests {
     fn recovering_nist_signatures_gives_their_hypertree_verified_fors_keys() {
         check_recovery_gives_nist_fors_keys(&sha2_256f_cases());
         check_recovery_gives_nist_fors_keys(&sha2_256s_cases());
+        check_recovery_gives_nist_fors_keys(&sha2_192f_cases());
+        check_recovery_gives_nist_fors_keys(&sha2_192s_cases());
         check_recovery_gives_nist_fors_keys(&sha2_128s_cases());
     }
 
@@ -427,6 +463,17 @@ mod tests {
     #[test]
     fn key_generation_at_a_nist_sha2_256s_position_gives_the_same_fors_key() {
         let [first, ..] = sha2_256s_cases();
+        check_key_generation_gives_nist_fors_keys(&[first]);
+    }
+
+    #[test]
+    fn key_generation_at_nist_sha2_192f_positions_gives_the_same_fors_keys() {
+        check_key_generation_gives_nist_fors_keys(&sha2_192f_cases());
+    }
+
+    #[test]
+    fn key_generation_at_a_nist_sha2_192s_position_gives_the_same_fors_key() {
+        let [first, ..] = sha2_192s_cases();
         check_key_generation_gives_nist_fors_keys(&[first]);
     }
 

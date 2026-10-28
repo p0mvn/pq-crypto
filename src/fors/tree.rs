@@ -364,6 +364,8 @@ mod tests {
     fn the_last_tree_of_each_shape_climbs_to_the_nodes_above_it() {
         check_last_tree_climbs::<35, 9, 32>();
         check_last_tree_climbs::<22, 14, 32>();
+        check_last_tree_climbs::<33, 8, 24>();
+        check_last_tree_climbs::<17, 14, 24>();
         check_last_tree_climbs::<16, 16, 32>();
         check_last_tree_climbs::<14, 12, 16>();
     }

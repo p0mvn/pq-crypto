@@ -7,6 +7,8 @@ fn main() {
     // Each shape is K trees of height A with N-byte hash values.
     sign_and_verify::<35, 9, 32, 64, 11_200>("SLH-DSA-SHA2-256f's FORS");
     sign_and_verify::<22, 14, 32, 64, 10_560>("SLH-DSA-SHA2-256s's FORS");
+    sign_and_verify::<33, 8, 24, 48, 7_128>("SLH-DSA-SHA2-192f's FORS");
+    sign_and_verify::<17, 14, 24, 48, 6_120>("SLH-DSA-SHA2-192s's FORS");
     sign_and_verify::<16, 16, 32, 64, 8_704>("16 trees of height 16");
     sign_and_verify::<14, 12, 16, 32, 2_912>("SLH-DSA-SHA2-128s's FORS");
 }

@@ -5,13 +5,13 @@ use zeroize::Zeroizing;
 
 use crate::params::ELEMENT_BYTES;
 
-/// Public seed of N bytes, 32 unless a FORS shape uses 16; constructing this value
-/// does not establish its entropy.
+/// Public seed of N bytes, 32 unless a FORS shape uses 16 or 24; constructing this
+/// value does not establish its entropy.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PublicSeed<const N: usize = ELEMENT_BYTES>(pub(crate) [u8; N]);
 
-/// Owned secret storage of N bytes, 32 unless a FORS shape uses 16, cleared on drop.
-/// Caller-owned copies cannot be erased here.
+/// Owned secret storage of N bytes, 32 unless a FORS shape uses 16 or 24, cleared on
+/// drop. Caller-owned copies cannot be erased here.
 ///
 /// ```compile_fail,E0599
 /// use pq_crypto::SecretSeed;

@@ -128,6 +128,8 @@ mod tests {
     fn each_tree_is_encoded_as_its_leaf_then_its_path_for_each_shape() {
         check_layout::<35, 9, 32, 11_200>();
         check_layout::<22, 14, 32, 10_560>();
+        check_layout::<33, 8, 24, 7_128>();
+        check_layout::<17, 14, 24, 6_120>();
         check_layout::<16, 16, 32, 8_704>();
         check_layout::<14, 12, 16, 2_912>();
     }
