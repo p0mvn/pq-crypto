@@ -2,11 +2,10 @@
 //!
 //! PRF and F always use SHA-256. H and T_l use SHA-256 for n = 16 (section 11.2.1,
 //! security category 1) and SHA-512 for n = 24 and n = 32 (section 11.2.2,
-//! categories 3 and 5). Every
-//! input starts with the public seed, zero-padded to one full block of the hash in
-//! use, followed by the 22-byte compressed address; each output is truncated to n
-//! bytes. PRF and F share one formula, as do H and T_l; only the address type
-//! separates them.
+//! categories 3 and 5). Every input starts with the public seed, zero-padded to one
+//! full block of the hash in use, followed by the 22-byte compressed address; each
+//! output is truncated to n bytes. PRF and F share one formula, as do H and T_l;
+//! only the address type separates them.
 
 use sha2::{Digest, Sha256, Sha512};
 
