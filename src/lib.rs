@@ -16,6 +16,7 @@
 
 mod digest;
 mod encoding;
+mod fips205_address;
 pub mod fors;
 mod hash;
 mod params;
