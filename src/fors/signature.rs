@@ -12,6 +12,14 @@ pub(crate) struct TreeSignature<const A: usize, const N: usize> {
 
 /// Revealed leaves and authentication paths for all K trees of height A, with
 /// n = N bytes per value. Successful parsing alone does not establish validity.
+///
+/// Encoding into an array of the wrong length fails to compile:
+///
+/// ```compile_fail,E0080
+/// use pq_crypto::fors::Signature;
+/// let signature = Signature::<35, 9, 32>::from_bytes(&[0; 11_200]);
+/// let bytes: [u8; 10_560] = signature.to_bytes();
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signature<const K: usize, const A: usize, const N: usize>(
     pub(crate) [TreeSignature<A, N>; K],

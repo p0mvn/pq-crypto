@@ -35,6 +35,16 @@ use crate::seed::{PublicSeed, SecretSeed, generate_seeds, seeds_are_equal};
 ///     PublicSeed::from_bytes([2; 24]),
 /// );
 /// ```
+///
+/// and here trees of height 17, whose indices would not fit in 16 bits:
+///
+/// ```compile_fail,E0080
+/// use pq_crypto::{PublicSeed, SecretSeed, fors::SigningKey};
+/// let key = SigningKey::<8, 17, 32>::from_seeds(
+///     SecretSeed::from_bytes([1; 32]),
+///     PublicSeed::from_bytes([2; 32]),
+/// );
+/// ```
 pub struct SigningKey<const K: usize, const A: usize, const N: usize> {
     secret_seed: SecretSeed<N>,
     public_seed: PublicSeed<N>,
@@ -525,5 +535,18 @@ mod tests {
                 "byte={byte}"
             );
         }
+    }
+
+    #[test]
+    fn signing_key_rejects_equal_16_byte_seeds_and_accepts_different_ones() {
+        let key = |public_byte| {
+            SigningKey::<14, 12, 16>::from_seeds(
+                SecretSeed::from_bytes([0x42; 16]),
+                PublicSeed::from_bytes([public_byte; 16]),
+            )
+        };
+
+        assert!(matches!(key(0x42), Err(SeedError::EqualSeeds)));
+        assert!(key(0x43).is_ok());
     }
 }

@@ -761,14 +761,15 @@ compared with an authenticated public key.
 "s" means small signatures and "f" means fast signing. The FORS trees drive
 much of that trade-off.
 
-### Why 256f for this crate
+### Why the guide uses 256f
 
-- `n = 32` matches the crate's 32-byte seeds.
+- `n = 32` matches the crate's default 32-byte seeds.
 - 512-leaf trees keep key generation at about 54,000 hash calls, so
   debug-build tests stay quick. 256s's 16,384-leaf trees cost about 20 times
   more.
-- Moving to 256s later means changing a few constants and refreshing test
-  vectors.
+- The crate's `fors` module takes the shape as const parameters
+  (`SigningKey<K, A, N>`), so 256s, 128s, and other shapes use the same code;
+  the guide's worked examples stay with 256f.
 
 ### Hash calls per operation
 
@@ -791,7 +792,7 @@ per leaf, an `H` per inner node, and one `T_k`. Verification computes
 
 | Reuse | From |
 | --- | --- |
-| `PublicSeed`, `SecretSeed` (32 bytes, the secret is cleared on drop) | `src/seed.rs` |
+| `PublicSeed`, `SecretSeed` (`n` bytes, 32 by default; the secret is cleared on drop) | `src/seed.rs` |
 | `DecodeError` for exact-length parsing | `src/encoding.rs` |
 | `Zeroizing` for secrets in flight | pattern in `src/wots/chain.rs`, `src/wots/key.rs` |
 | Equal-seed rejection | `SigningKey::from_seeds` in `src/wots/key.rs`; move the byte comparison into `src/seed.rs` so both schemes share it |
@@ -902,8 +903,9 @@ third.
 **Stage 9 (optional). Speed**
 - Cache the padded public-seed block's hash state once per key (section 6),
   which halves the work of `PRF`, `F` and `H`.
-- Measure before and after in a release build, then try 256s by changing the
-  constants.
+- Measure before and after in a release build, for 256f and the larger
+  shapes (`cargo run --release --example fors_sign_verify` prints each one's
+  timings).
 - A one-pass tree walk that produces the root and the path together saves
   little for signing alone (see the cost table). Try it only if you also need
   the root during signing.
@@ -942,6 +944,11 @@ pub mod fors {
     }
 }
 ```
+
+The implemented module follows this sketch for one shape at a time: each type
+takes `K`, `A`, and `N` as const parameters (`IndexDigest<K, A>` takes the first
+two), and the sizes become associated constants such as
+`Signature::<35, 9, 32>::BYTES`.
 
 There is one deliberate difference from WOTS+. `wots::SigningKey::sign_digest`
 consumes the key, because a second signature breaks it. A FORS key can sign

@@ -8,6 +8,13 @@ use crate::fors::params::check_trees;
 /// ignored, so digests differing only there are equal and share signatures. Message
 /// hashing and context binding belong to the caller, and the digest must come from a
 /// hash whose output an attacker cannot steer.
+///
+/// Arrays of the wrong length fail to compile; 22 trees of height 14 take 39 bytes:
+///
+/// ```compile_fail,E0080
+/// use pq_crypto::fors::IndexDigest;
+/// let digest = IndexDigest::<22, 14>::from_bytes([0; 40]);
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexDigest<const K: usize, const A: usize>([u16; K]);
 

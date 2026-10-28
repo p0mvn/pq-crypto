@@ -325,4 +325,62 @@ mod tests {
             Err(AddressError::InvalidHeight)
         );
     }
+
+    /// Climbs from the last leaf of the last tree through a 3-node path to the
+    /// height-3 node above it, and from that tree's first leaf likewise, so the
+    /// addresses at both ends of the forest agree with node() for this shape.
+    fn check_last_tree_climbs<const K: usize, const A: usize, const N: usize>() {
+        let secret_seed = SecretSeed::from_bytes(std::array::from_fn(|i| i as u8));
+        let public_seed = PublicSeed::from_bytes(std::array::from_fn(|i| (31 - i) as u8));
+        let position = KeyPosition::STANDALONE;
+        let last_tree = K - 1;
+        for leaf in [
+            forest_leaf::<A>(last_tree, 0),
+            forest_leaf::<A>(last_tree, ((1u32 << A) - 1) as u16),
+        ] {
+            let path: [[u8; N]; 3] = std::array::from_fn(|height| {
+                let height = height as u32;
+                node::<K, A, N>(
+                    &secret_seed,
+                    &public_seed,
+                    position,
+                    height,
+                    (leaf >> height) ^ 1,
+                )
+                .unwrap()
+            });
+            let secret =
+                secret_leaf::<K, A, N>(&secret_seed, &public_seed, position, leaf).unwrap();
+            let leaf_node = leaf_node::<K, A, N>(&public_seed, position, leaf, &secret).unwrap();
+            assert_eq!(
+                root_from_auth_path::<K, A, N>(&public_seed, position, leaf, &leaf_node, &path),
+                node::<K, A, N>(&secret_seed, &public_seed, position, 3, leaf >> 3),
+                "leaf={leaf}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_last_tree_of_each_shape_climbs_to_the_nodes_above_it() {
+        check_last_tree_climbs::<35, 9, 32>();
+        check_last_tree_climbs::<22, 14, 32>();
+        check_last_tree_climbs::<16, 16, 32>();
+        check_last_tree_climbs::<14, 12, 16>();
+    }
+
+    #[test]
+    fn a_full_16_byte_path_climbs_to_the_root_of_the_last_sha2_128s_tree() {
+        let secret_seed = SecretSeed::from_bytes([7; 16]);
+        let public_seed = PublicSeed::from_bytes([9; 16]);
+        let position = KeyPosition::STANDALONE;
+        let leaf = forest_leaf::<12>(13, 4_000);
+
+        let path = auth_path::<14, 12, 16>(&secret_seed, &public_seed, position, leaf).unwrap();
+        let secret = secret_leaf::<14, 12, 16>(&secret_seed, &public_seed, position, leaf).unwrap();
+        let leaf_node = leaf_node::<14, 12, 16>(&public_seed, position, leaf, &secret).unwrap();
+        assert_eq!(
+            root_from_auth_path::<14, 12, 16>(&public_seed, position, leaf, &leaf_node, &path),
+            node::<14, 12, 16>(&secret_seed, &public_seed, position, 12, 13),
+        );
+    }
 }
