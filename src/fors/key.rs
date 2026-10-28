@@ -2,7 +2,8 @@
 
 use rand_core::TryCryptoRng;
 
-use crate::fors::address::{KeyPosition, compress, roots_address};
+use crate::fips205_address::compress;
+use crate::fors::address::{KeyPosition, roots_address};
 use crate::fors::digest::IndexDigest;
 use crate::fors::params::check_shape;
 use crate::fors::signature::{Signature, TreeSignature, VerifyError};
@@ -116,33 +117,12 @@ impl<const K: usize, const A: usize, const N: usize> SigningKey<K, A, N> {
     /// any third digest. Signing is deterministic, so signing the same digest again
     /// reveals nothing new. See `docs/fors-onboarding.md`, section 5.
     pub fn sign_digest(&self, digest: &IndexDigest<K, A>) -> Signature<K, A, N> {
-        self.sign_digest_at(digest, KeyPosition::STANDALONE)
-    }
-
-    /// FIPS 205 Algorithm 16 for a key at the given SLH-DSA position.
-    fn sign_digest_at(
-        &self,
-        digest: &IndexDigest<K, A>,
-        position: KeyPosition,
-    ) -> Signature<K, A, N> {
-        let indices = digest.indices();
-
-        Signature(std::array::from_fn(|tree| {
-            let leaf = forest_leaf::<A>(tree, indices[tree]);
-            let leaf_secret =
-                secret_leaf::<K, A, N>(&self.secret_seed, &self.public_seed, position, leaf)
-                    .expect("digest indices select leaves inside the forest");
-            TreeSignature {
-                leaf_secret: *leaf_secret,
-                auth_path: auth_path::<K, A, N>(
-                    &self.secret_seed,
-                    &self.public_seed,
-                    position,
-                    leaf,
-                )
-                .expect("digest indices select leaves inside the forest"),
-            }
-        }))
+        sign_at(
+            &self.secret_seed,
+            &self.public_seed,
+            digest,
+            KeyPosition::STANDALONE,
+        )
     }
 
     /// Computes the K tree roots for a key at the given position and combines them.
@@ -245,9 +225,31 @@ impl<const K: usize, const A: usize, const N: usize> VerifyingKey<K, A, N> {
     }
 }
 
+/// FIPS 205 Algorithm 16 for a key at the given SLH-DSA position: reveals the secret
+/// leaf each digest index selects, with its authentication path.
+pub(crate) fn sign_at<const K: usize, const A: usize, const N: usize>(
+    secret_seed: &SecretSeed<N>,
+    public_seed: &PublicSeed<N>,
+    digest: &IndexDigest<K, A>,
+    position: KeyPosition,
+) -> Signature<K, A, N> {
+    let indices = digest.indices();
+
+    Signature(std::array::from_fn(|tree| {
+        let leaf = forest_leaf::<A>(tree, indices[tree]);
+        let leaf_secret = secret_leaf::<K, A, N>(secret_seed, public_seed, position, leaf)
+            .expect("digest indices select leaves inside the forest");
+        TreeSignature {
+            leaf_secret: *leaf_secret,
+            auth_path: auth_path::<K, A, N>(secret_seed, public_seed, position, leaf)
+                .expect("digest indices select leaves inside the forest"),
+        }
+    }))
+}
+
 /// FIPS 205 Algorithm 17 for a key at the given position: climbs each tree from its
 /// revealed leaf to a candidate root, then combines the candidates.
-fn recover_root_at<const K: usize, const A: usize, const N: usize>(
+pub(crate) fn recover_root_at<const K: usize, const A: usize, const N: usize>(
     digest: &IndexDigest<K, A>,
     signature: &Signature<K, A, N>,
     public_seed: &PublicSeed<N>,
@@ -377,7 +379,12 @@ mod tests {
     ) {
         for case in cases {
             assert!(
-                case.key.sign_digest_at(&case.digest, case.position) == case.signature,
+                sign_at(
+                    &case.key.secret_seed,
+                    &case.key.public_seed,
+                    &case.digest,
+                    case.position
+                ) == case.signature,
                 "position={:?}",
                 case.position,
             );
@@ -504,7 +511,7 @@ mod tests {
         };
         for position in [KeyPosition::STANDALONE, position] {
             let digest = patterned_digest();
-            let signature = key.sign_digest_at(&digest, position);
+            let signature = sign_at(&key.secret_seed, &key.public_seed, &digest, position);
             assert_eq!(
                 recover_root_at(&digest, &signature, &key.public_seed, position),
                 key.root_at(position),

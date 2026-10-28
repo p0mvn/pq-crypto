@@ -18,6 +18,14 @@
 - FORS test vectors extracted from NIST's SLH-DSA-SHA2-256f, 256s, 192f, 192s,
   and 128s signing test data, with each FORS public key verified up to NIST's public key
   root.
+- An `slh_dsa` module with FIPS 205 SLH-DSA for the SLH-DSA-SHA2-256f parameter
+  set: key generation from caller-supplied randomness or three seeds
+  (`SecretSeed`, `PrfKey`, `PublicSeed`), hedged and deterministic signing of
+  messages of any length under a `Context` of up to 255 bytes, verification,
+  and exact-length encodings for 49,856-byte signatures and 64-byte public keys.
+  HashSLH-DSA and the other parameter sets are not included.
+- SLH-DSA test vectors copied from NIST's FIPS 205 key-generation, signing, and
+  verification test data.
 
 ## [0.1.0-rc2] - 2026-10-27
 

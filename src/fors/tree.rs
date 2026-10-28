@@ -6,9 +6,8 @@
 
 use zeroize::Zeroizing;
 
-use crate::fors::address::{
-    AddressError, KeyPosition, compress, secret_leaf_address, tree_node_address,
-};
+use crate::fips205_address::compress;
+use crate::fors::address::{AddressError, KeyPosition, secret_leaf_address, tree_node_address};
 use crate::hash::fips205;
 use crate::seed::{PublicSeed, SecretSeed};
 

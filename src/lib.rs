@@ -1,12 +1,14 @@
-//! Hash-based signatures: fixed-profile WOTS+ and configurable FORS.
+//! Hash-based signatures: fixed-profile WOTS+, configurable FORS, and SLH-DSA.
 //!
 //! The [`wots`] module implements standalone RFC 8391 WOTS+ over SHA-256. The
 //! [`fors`] module implements standalone FIPS 205 FORS with a configurable number
 //! of trees, tree height, and hash length, including the shapes of SLH-DSA-SHA2-256f,
-//! 256s, 192f, 192s, and 128s; it uses SHA-256 and SHA-512. The crate root holds what
-//! does not depend on a particular scheme: the public and secret seeds (32 bytes, or
-//! 16 or 24 for FORS with those hash lengths), the 32-byte message digest WOTS+
-//! signs, and the error for exact-length decoding.
+//! 256s, 192f, 192s, and 128s; it uses SHA-256 and SHA-512. The [`slh_dsa`] module
+//! implements FIPS 205 SLH-DSA with the SLH-DSA-SHA2-256f parameter set, built on
+//! FORS and on FIPS 205's own WOTS+ and XMSS trees. The crate root holds what does
+//! not depend on a particular scheme: the public and secret seeds (32 bytes, or 16
+//! or 24 for FORS with those hash lengths), the 32-byte message digest WOTS+ signs,
+//! and the error for exact-length decoding.
 //!
 //! Managed secrets and hash state are cleared on drop. Compiler-generated copies
 //! and registers are outside that guarantee. Comparisons are dependency-free and
@@ -16,10 +18,12 @@
 
 mod digest;
 mod encoding;
+mod fips205_address;
 pub mod fors;
 mod hash;
 mod params;
 mod seed;
+pub mod slh_dsa;
 #[cfg(test)]
 mod test_vectors;
 pub mod wots;

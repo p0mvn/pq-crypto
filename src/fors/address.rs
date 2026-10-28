@@ -3,10 +3,7 @@
 //! Each kind of address is built in a single call, so a constructor never inherits
 //! fields from an address of another type.
 
-/// FIPS 205 section 4.2 address types used by FORS.
-const FORS_TREE: u32 = 3;
-const FORS_ROOTS: u32 = 4;
-const FORS_PRF: u32 = 6;
+use crate::fips205_address::{FORS_PRF, FORS_ROOTS, FORS_TREE};
 
 /// Where a FORS key sits inside SLH-DSA: the bottom-layer tree and the key pair within
 /// it. Standalone keys use zero for both.
@@ -69,36 +66,22 @@ pub(crate) fn roots_address(position: KeyPosition) -> [u8; 32] {
     encode(position, FORS_ROOTS, 0, 0)
 }
 
-/// FIPS 205 section 11.2: ADRSc = ADRS[3] || ADRS[8..16] || ADRS[19] || ADRS[20..32].
-/// It drops the high bytes of the layer, tree, and type fields, which are zero in
-/// every address built here.
-pub(crate) fn compress(address: &[u8; 32]) -> [u8; 22] {
-    let mut compressed = [0u8; 22];
-    compressed[0] = address[3];
-    compressed[1..9].copy_from_slice(&address[8..16]);
-    compressed[9] = address[19];
-    compressed[10..22].copy_from_slice(&address[20..32]);
-    compressed
-}
-
-/// Encodes a FIPS 205 address with big-endian fields; the layer is always zero for FORS.
+/// Encodes a FORS address; the layer is always zero for FORS.
 fn encode(position: KeyPosition, address_type: u32, height: u32, index: u32) -> [u8; 32] {
-    //  bytes:  0..4  | 4..16 | 16..20 | 20..24   | 24..28 | 28..32
-    //          layer | tree  | type   | key pair | height | index
-    let mut address = [0u8; 32];
-
-    address[8..16].copy_from_slice(&position.tree.to_be_bytes());
-    address[16..20].copy_from_slice(&address_type.to_be_bytes());
-    address[20..24].copy_from_slice(&position.key_pair.to_be_bytes());
-    address[24..28].copy_from_slice(&height.to_be_bytes());
-    address[28..32].copy_from_slice(&index.to_be_bytes());
-
-    address
+    crate::fips205_address::encode(
+        0,
+        position.tree,
+        address_type,
+        position.key_pair,
+        height,
+        index,
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fips205_address::compress;
     use crate::test_vectors::hex;
 
     // SLH-DSA-SHA2-256f's 35 trees of height 9, used by the guide's examples.

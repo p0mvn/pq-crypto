@@ -49,6 +49,8 @@ mod params;
 mod signature;
 mod tree;
 
+pub(crate) use address::KeyPosition;
 pub use digest::IndexDigest;
 pub use key::{KeyGenerationError, SeedError, SigningKey, VerifyingKey};
+pub(crate) use key::{recover_root_at, sign_at};
 pub use signature::{Signature, VerifyError};
