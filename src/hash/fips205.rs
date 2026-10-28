@@ -5,8 +5,10 @@
 //! categories 3 and 5). Every input starts with the public seed, zero-padded to one
 //! full block of the hash in use, followed by the 22-byte compressed address; each
 //! output is truncated to n bytes. PRF and F share one formula, as do H and T_l;
-//! only the address type separates them.
+//! only the address type separates them. SLH-DSA's message functions PRF_msg and
+//! H_msg are provided for n = 32 only.
 
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::{Digest, Sha256, Sha512};
 
 /// FIPS 205 sections 11.2.1 and 11.2.2:
@@ -66,6 +68,43 @@ pub(crate) fn t<const N: usize>(
         values.iter().for_each(|value| hasher.update(value));
         first_bytes(&hasher.finalize())
     }
+}
+
+/// FIPS 205 section 11.2.2 PRF_msg for n = 32:
+/// Trunc_32(HMAC-SHA-512(SK.prf, opt_rand || M)), where M is the message pieces
+/// concatenated in order. The output is a signature's randomizer R.
+pub(crate) fn prf_msg(prf_key: &[u8; 32], randomness: &[u8; 32], message: &[&[u8]]) -> [u8; 32] {
+    let mut mac =
+        Hmac::<Sha512>::new_from_slice(prf_key).expect("HMAC accepts keys of every length");
+    mac.update(randomness);
+    message.iter().for_each(|piece| mac.update(piece));
+
+    first_bytes(&mac.finalize().into_bytes())
+}
+
+/// FIPS 205 section 11.2.2 H_msg for n = 32, giving M bytes:
+/// MGF1-SHA-512(R || PK.seed || SHA-512(R || PK.seed || PK.root || M), M), where M
+/// is the message pieces concatenated in order. One SHA-512 output covers up to 64
+/// bytes, so MGF1 is a single hash with counter zero; longer outputs fail to compile.
+pub(crate) fn h_msg<const M: usize>(
+    randomizer: &[u8; 32],
+    public_seed: &[u8; 32],
+    public_root: &[u8; 32],
+    message: &[&[u8]],
+) -> [u8; M] {
+    const { assert!(M <= 64, "MGF1 here produces one SHA-512 output") };
+    let mut inner = Sha512::new();
+    inner.update(randomizer);
+    inner.update(public_seed);
+    inner.update(public_root);
+    message.iter().for_each(|piece| inner.update(piece));
+
+    let mut mgf1 = Sha512::new();
+    mgf1.update(randomizer);
+    mgf1.update(public_seed);
+    mgf1.update(inner.finalize());
+    mgf1.update(0u32.to_be_bytes());
+    first_bytes(&mgf1.finalize())
 }
 
 /// Starts SHA-256 with the public seed padded to its 64-byte block, then the address.
@@ -308,6 +347,66 @@ mod tests {
         assert_eq!(
             t(&public_seed, &ADDRESS, &roots),
             hex("249307f60d07709903937c375869eecc885b783f702c91fb"),
+        );
+    }
+
+    // PRF_msg and H_msg vectors were calculated with Python hmac and hashlib and
+    // cross-checked with openssl mac and openssl dgst. The message is "0xtest"
+    // followed by the external-interface prefix of the context "ctx".
+    const MESSAGE: [&[u8]; 3] = [b"0xtest", &[0x00, 0x03], b"ctx"];
+
+    #[test]
+    fn prf_msg_matches_independently_calculated_vectors() {
+        assert_eq!(
+            prf_msg(&[0; 32], &[0; 32], &[]),
+            hex("bae46cebebbb90409abc5acf7ac21fdb339c01ce15192c52fb9e8aa11a8de9a4"),
+        );
+        assert_eq!(
+            prf_msg(&FIRST_VALUE, &SECOND_VALUE, &MESSAGE),
+            hex("fe5de0e093ab121cf302a25a88cc98705a30aba96495495c6d3b24ab9a0aa446"),
+        );
+    }
+
+    #[test]
+    fn h_msg_matches_independently_calculated_vectors() {
+        assert_eq!(
+            h_msg::<49>(&[0; 32], &[0; 32], &[0; 32], &[]),
+            hex(concat!(
+                "7d7c0460bb07c18c1eeee7ebd11564bf87444495d8c171524789ca0ded9884d2",
+                "6cb0f9adc6bae87487eb9c0779918346e1"
+            )),
+        );
+        assert_eq!(
+            h_msg::<49>(&FIRST_VALUE, &PUBLIC_SEED, &SECOND_VALUE, &MESSAGE),
+            hex(concat!(
+                "76187038493ae12d3b12e07aef4b74ff8e5bcf76fcee12c4d1841faa239120c6",
+                "c152ca7003320f55634e149aa4117f1123"
+            )),
+        );
+    }
+
+    #[test]
+    fn message_functions_hash_the_concatenated_pieces() {
+        let joined: &[u8] = b"0xtest\x00\x03ctx";
+        let split: [&[u8]; 5] = [b"0x", b"", b"test\x00", b"\x03c", b"tx"];
+
+        assert_eq!(
+            prf_msg(&FIRST_VALUE, &SECOND_VALUE, &[joined]),
+            prf_msg(&FIRST_VALUE, &SECOND_VALUE, &split),
+        );
+        assert_eq!(
+            h_msg::<49>(&FIRST_VALUE, &PUBLIC_SEED, &SECOND_VALUE, &[joined]),
+            h_msg::<49>(&FIRST_VALUE, &PUBLIC_SEED, &SECOND_VALUE, &split),
+        );
+    }
+
+    #[test]
+    fn h_msg_shorter_outputs_are_prefixes_of_the_same_hash() {
+        let full = h_msg::<64>(&FIRST_VALUE, &PUBLIC_SEED, &SECOND_VALUE, &MESSAGE);
+
+        assert_eq!(
+            h_msg::<49>(&FIRST_VALUE, &PUBLIC_SEED, &SECOND_VALUE, &MESSAGE),
+            full[..49]
         );
     }
 }

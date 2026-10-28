@@ -21,6 +21,7 @@ pub mod fors;
 mod hash;
 mod params;
 mod seed;
+pub mod slh_dsa;
 #[cfg(test)]
 mod test_vectors;
 pub mod wots;

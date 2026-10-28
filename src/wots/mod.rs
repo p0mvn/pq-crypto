@@ -13,6 +13,8 @@ mod key;
 mod params;
 mod signature;
 
+pub(crate) use digits::message_digits;
 pub use key::{KeyGenerationError, SeedError, SigningKey, VerifyingKey};
+pub(crate) use params::{BASE16_MAX, CHAINS};
 pub use params::{SIGNATURE_BYTES, VERIFYING_KEY_BYTES};
 pub use signature::{Signature, VerifyError};

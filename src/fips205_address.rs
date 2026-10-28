@@ -5,8 +5,12 @@
 //! [`encode`], so a constructor never inherits fields from an address of another type.
 
 /// FIPS 205 section 4.2 address types.
+pub(crate) const WOTS_HASH: u32 = 0;
+pub(crate) const WOTS_PK: u32 = 1;
+pub(crate) const TREE: u32 = 2;
 pub(crate) const FORS_TREE: u32 = 3;
 pub(crate) const FORS_ROOTS: u32 = 4;
+pub(crate) const WOTS_PRF: u32 = 5;
 pub(crate) const FORS_PRF: u32 = 6;
 
 /// Encodes an address with big-endian fields. Words 6 and 7 are the chain and hash
@@ -76,6 +80,16 @@ mod tests {
         assert_eq!(
             compress(&address),
             hex("10 ffffffffffffffff 03 0a0b0c0d 00000004 00000001")
+        );
+    }
+
+    #[test]
+    fn address_types_follow_fips_205_section_4_2() {
+        assert_eq!(
+            [
+                WOTS_HASH, WOTS_PK, TREE, FORS_TREE, FORS_ROOTS, WOTS_PRF, FORS_PRF
+            ],
+            [0, 1, 2, 3, 4, 5, 6]
         );
     }
 }
