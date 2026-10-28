@@ -15,3 +15,8 @@ zeroize = "1.8"
 
 [dev-dependencies]
 getrandom = { version = "0.4", features = ["sys_rng"] }
+
+# Debug-build tests hash millions of times for the larger FORS shapes, so build the
+# dependencies, SHA-2 among them, with optimizations.
+[profile.dev.package."*"]
+opt-level = 3

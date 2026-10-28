@@ -3,8 +3,6 @@
 //! Each kind of address is built in a single call, so a constructor never inherits
 //! fields from an address of another type.
 
-use crate::fors::params::{LEAVES_PER_TREE, TREE_HEIGHT, TREES};
-
 /// FIPS 205 section 4.2 address types used by FORS.
 const FORS_TREE: u32 = 3;
 const FORS_ROOTS: u32 = 4;
@@ -25,47 +23,48 @@ impl KeyPosition {
     };
 }
 
-/// A requested leaf or node lies outside the 35 trees of height 9.
+/// A requested leaf or node lies outside the K trees of height A.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AddressError {
     InvalidHeight,
     InvalidIndex,
 }
 
-/// Labels the PRF call that derives one secret leaf.
-/// The leaf index counts across the forest: tree i holds leaves i * 512 through
-/// i * 512 + 511. Returns InvalidIndex beyond the last leaf of the last tree.
-pub(crate) fn secret_leaf_address(
+/// Labels the PRF call that derives one secret leaf of a key with K trees of height A.
+/// The leaf index counts across the forest: tree i holds leaves i * 2^A through
+/// (i + 1) * 2^A - 1. Returns InvalidIndex beyond the last leaf of the last tree.
+pub(crate) fn secret_leaf_address<const K: usize, const A: usize>(
     position: KeyPosition,
     leaf: u32,
 ) -> Result<[u8; 32], AddressError> {
-    if leaf >= (TREES * LEAVES_PER_TREE) as u32 {
+    if u64::from(leaf) >= (K as u64) << A {
         return Err(AddressError::InvalidIndex);
     }
 
     Ok(encode(position, FORS_PRF, 0, leaf))
 }
 
-/// Labels the F call for a leaf hash (height 0) or the H call for a node above it.
-/// The index counts across the forest at that height: tree i holds indices
-/// i * 2^(9 - height) onward, so each tree root sits at height 9 with index i.
-/// Returns InvalidHeight above 9 and InvalidIndex beyond the last tree.
-pub(crate) fn tree_node_address(
+/// Labels the F call for a leaf hash (height 0) or the H call for a node above it,
+/// in a key with K trees of height A. The index counts across the forest at that
+/// height: tree i holds indices i * 2^(A - height) onward, so each tree root sits at
+/// height A with index i. Returns InvalidHeight above A and InvalidIndex beyond the
+/// last tree.
+pub(crate) fn tree_node_address<const K: usize, const A: usize>(
     position: KeyPosition,
     height: u32,
     index: u32,
 ) -> Result<[u8; 32], AddressError> {
-    if height > TREE_HEIGHT as u32 {
+    if height > A as u32 {
         return Err(AddressError::InvalidHeight);
     }
-    if index >= (TREES << (TREE_HEIGHT as u32 - height)) as u32 {
+    if u64::from(index) >= (K as u64) << (A as u32 - height) {
         return Err(AddressError::InvalidIndex);
     }
 
     Ok(encode(position, FORS_TREE, height, index))
 }
 
-/// Labels the T_k call that combines the 35 tree roots into the public root.
+/// Labels the T_k call that combines the tree roots into the public root.
 pub(crate) fn roots_address(position: KeyPosition) -> [u8; 32] {
     encode(position, FORS_ROOTS, 0, 0)
 }
@@ -102,12 +101,16 @@ mod tests {
     use super::*;
     use crate::test_vectors::hex;
 
+    // SLH-DSA-SHA2-256f's 35 trees of height 9, used by the guide's examples.
+    const K: usize = 35;
+    const A: usize = 9;
+
     // The worked example in docs/fors-onboarding.md section 7: tree 2, leaf 300,
     // forest leaf 2 * 512 + 300 = 1324, and its ancestor 1324 >> 3 = 165 at height 3.
 
     #[test]
     fn tree_node_address_matches_the_guide_example() {
-        let address = tree_node_address(KeyPosition::STANDALONE, 3, 165).unwrap();
+        let address = tree_node_address::<K, A>(KeyPosition::STANDALONE, 3, 165).unwrap();
 
         assert_eq!(
             address,
@@ -122,7 +125,7 @@ mod tests {
     #[test]
     fn secret_leaf_address_matches_the_guide_example() {
         assert_eq!(
-            secret_leaf_address(KeyPosition::STANDALONE, 1324),
+            secret_leaf_address::<K, A>(KeyPosition::STANDALONE, 1324),
             Ok(hex(
                 "00000000 00000000 00000000 00000000 00000006 00000000 00000000 0000052c"
             ))
@@ -144,8 +147,8 @@ mod tests {
             key_pair: 0x090a_0b0c,
         };
         let addresses = [
-            secret_leaf_address(position, 0).unwrap(),
-            tree_node_address(position, 0, 0).unwrap(),
+            secret_leaf_address::<K, A>(position, 0).unwrap(),
+            tree_node_address::<K, A>(position, 0, 0).unwrap(),
             roots_address(position),
         ];
 
@@ -162,7 +165,7 @@ mod tests {
             tree: u64::MAX,
             key_pair: u32::MAX,
         };
-        let address = tree_node_address(position, 9, 34).unwrap();
+        let address = tree_node_address::<K, A>(position, 9, 34).unwrap();
         let compressed = compress(&address);
 
         assert_eq!(compressed[0], 0);
@@ -173,39 +176,44 @@ mod tests {
         assert_eq!(&compressed[18..22], &34u32.to_be_bytes());
     }
 
-    #[test]
-    fn addresses_accept_the_last_leaf_and_the_last_node_at_every_height() {
-        assert!(secret_leaf_address(KeyPosition::STANDALONE, 35 * 512 - 1).is_ok());
-        for height in 0..=9 {
-            let last = (35u32 << (9 - height)) - 1;
-            assert!(tree_node_address(KeyPosition::STANDALONE, height, last).is_ok());
-        }
-    }
-
-    #[test]
-    fn addresses_reject_positions_past_the_last_tree() {
-        for leaf in [35 * 512, u32::MAX] {
+    /// Checks that a key with K trees of height A accepts its last leaf and the last
+    /// node at every height, and rejects the next one and heights above its roots.
+    fn check_forest_bounds<const K: usize, const A: usize>() {
+        let leaves = (K << A) as u32;
+        assert!(secret_leaf_address::<K, A>(KeyPosition::STANDALONE, leaves - 1).is_ok());
+        for leaf in [leaves, u32::MAX] {
             assert_eq!(
-                secret_leaf_address(KeyPosition::STANDALONE, leaf),
+                secret_leaf_address::<K, A>(KeyPosition::STANDALONE, leaf),
                 Err(AddressError::InvalidIndex)
             );
         }
-        for height in 0..=9 {
-            let past_last = 35u32 << (9 - height);
+
+        for height in 0..=A as u32 {
+            let nodes = (K as u32) << (A as u32 - height);
+            assert!(
+                tree_node_address::<K, A>(KeyPosition::STANDALONE, height, nodes - 1).is_ok(),
+                "height={height}"
+            );
             assert_eq!(
-                tree_node_address(KeyPosition::STANDALONE, height, past_last),
-                Err(AddressError::InvalidIndex)
+                tree_node_address::<K, A>(KeyPosition::STANDALONE, height, nodes),
+                Err(AddressError::InvalidIndex),
+                "height={height}"
             );
         }
-    }
-
-    #[test]
-    fn tree_node_address_rejects_heights_above_the_root() {
-        for height in [10, u32::MAX] {
+        for height in [A as u32 + 1, u32::MAX] {
             assert_eq!(
-                tree_node_address(KeyPosition::STANDALONE, height, 0),
+                tree_node_address::<K, A>(KeyPosition::STANDALONE, height, 0),
                 Err(AddressError::InvalidHeight)
             );
         }
+    }
+
+    #[test]
+    fn addresses_cover_exactly_the_forest_of_each_shape() {
+        check_forest_bounds::<35, 9>();
+        check_forest_bounds::<22, 14>();
+        check_forest_bounds::<16, 16>();
+        check_forest_bounds::<14, 12>();
+        check_forest_bounds::<1, 1>();
     }
 }

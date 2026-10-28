@@ -1,21 +1,29 @@
-//! Parameters for FORS with the SLH-DSA-SHA2-256f values of FIPS 205 table 2.
+//! FORS shapes: k trees of height a with n-byte hash values, chosen by the const
+//! parameters `K`, `A`, and `N` of the public types.
 
-use crate::params::ELEMENT_BYTES;
+/// Rejects tree shapes the index and address encodings cannot hold: at least one
+/// tree, heights 1 to 16 so each index fits in 16 bits, and at most 2^32 leaves so
+/// every leaf index fits its 32-bit address field. Called in constant contexts, so
+/// an unsupported shape fails to compile where it is first used.
+pub(crate) const fn check_trees(trees: usize, tree_height: usize) {
+    assert!(trees > 0, "a FORS key needs at least one tree");
+    assert!(
+        tree_height > 0 && tree_height <= 16,
+        "FORS tree height a must be 1 to 16"
+    );
+    assert!(
+        trees as u64 <= (1u64 << 32) >> tree_height,
+        "a FORS key can hold at most 2^32 leaves"
+    );
+}
 
-/// Bytes in the digest a FORS key signs: 35 indices of 9 bits, rounded up to bytes.
-pub const INDEX_DIGEST_BYTES: usize = 40;
-/// For each of the 35 trees, one secret leaf followed by a 9-node authentication path.
-pub const SIGNATURE_BYTES: usize = 11_200;
-/// The public seed followed by the FORS public root.
-pub const VERIFYING_KEY_BYTES: usize = 64;
-
-/// FIPS 205 k: the number of trees, one per index taken from the digest.
-pub(crate) const TREES: usize = 35;
-/// FIPS 205 a: hash levels above the leaves of each tree, and bits per index.
-pub(crate) const TREE_HEIGHT: usize = 9;
-/// FIPS 205 t = 2^a: leaves in each tree.
-pub(crate) const LEAVES_PER_TREE: usize = 1 << TREE_HEIGHT;
-
-const _: () = assert!(INDEX_DIGEST_BYTES == (TREES * TREE_HEIGHT).div_ceil(8));
-const _: () = assert!(SIGNATURE_BYTES == TREES * (1 + TREE_HEIGHT) * ELEMENT_BYTES);
-const _: () = assert!(VERIFYING_KEY_BYTES == 2 * ELEMENT_BYTES);
+/// Rejects unsupported shapes as [`check_trees`] does, and hash lengths other than
+/// the two whose hash functions this crate checks against NIST data: n = 16
+/// (SHA-256 only) and n = 32 (SHA-256 and SHA-512).
+pub(crate) const fn check_shape(trees: usize, tree_height: usize, n: usize) {
+    check_trees(trees, tree_height);
+    assert!(
+        n == 16 || n == 32,
+        "FORS hash length n must be 16 or 32 bytes"
+    );
+}
