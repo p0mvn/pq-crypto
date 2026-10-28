@@ -15,6 +15,11 @@ digests. The crate's `fors` module implements standalone FORS with a
 configurable number of trees, tree height, and hash length, including the
 shapes SLH-DSA-SHA2-256f, 256s, 192f, 192s, and 128s use; see [FORS](#fors) below.
 
+SLH-DSA, the stateless hash-based signature standard of FIPS 205 (based on
+SPHINCS+), builds on both: a tree of WOTS+ keys certifies a FORS key chosen
+anew for each message. The crate's `slh_dsa` module implements the
+SLH-DSA-SHA2-256f parameter set; see [SLH-DSA](#slh-dsa) below.
+
 ## How it works
 
 A key contains secret starting values for a set of hash chains. The public key
@@ -50,8 +55,9 @@ without algorithm identifiers or RFC Appendix A envelopes.
 
 The crate requires Rust 1.97 or later; the repository pins 1.97.1. The package
 name is `pq-crypto`; Rust code imports it as `pq_crypto`. WOTS+ types live in
-its `wots` module and FORS types in its `fors` module; seeds, `MessageDigest`,
-and `DecodeError` are at the crate root. Add it with
+its `wots` module, FORS types in its `fors` module, and SLH-DSA types in its
+`slh_dsa` module; seeds, `MessageDigest`, and `DecodeError` are at the crate
+root. Add it with
 `cargo add pq-crypto@0.1.0-rc2`; release candidates are only selected when the
 version is named. The snippets below use `sha2` 0.11 and `getrandom` 0.4 with its `sys_rng` feature,
 which are already configured in this repository.
@@ -197,13 +203,83 @@ offer at most 128-bit security even for one signature, and shapes with `n = 24`
 at most 192-bit. Never sign digests an
 attacker can choose: two chosen digests are enough to forge a third. SLH-DSA
 avoids both problems by randomizing each digest and spreading signatures over
-many FORS keys; this standalone module leaves both to the caller.
+many FORS keys; this standalone module leaves both to the caller, and the
+[`slh_dsa` module](#slh-dsa) does both.
 
 For the 256f, 256s, 192f, 192s, and 128s shapes, the signer reproduces
 signatures from NIST's FIPS 205 test data byte for byte; see
 [tests/data/fors/README.md](tests/data/fors/README.md). The
 [FORS onboarding guide](docs/fors-onboarding.md) explains the construction from
 first principles.
+
+## SLH-DSA
+
+SLH-DSA signs messages of any length and keeps no state. Signing hashes the
+context string and the message with a randomizer into 49 bytes. The last nine
+pick one of 2^68 FORS keys, and that key signs the first forty. A hypertree
+then certifies the FORS key: 17 layers of XMSS trees, each a Merkle tree over
+16 WOTS+ keys. A WOTS+ key in the bottom layer signs the FORS public key, and
+each tree's root is signed by a WOTS+ key one layer up, until the top root,
+which is the public key:
+
+```text
+message ── H_msg ──> FORS digest + key choice ── FORS ──> FORS public key ── WOTS+ and XMSS, 17 layers ──> public root
+```
+
+Every key in the structure is derived from the seeds and its position, so
+nothing is stored, and one key can sign up to 2^64 messages, the FIPS 205 limit
+for this parameter set. Copies of a key may sign independently as long as they
+stay under that limit together. Because each message picks its FORS key with a
+randomized hash, the few-signature limit of standalone FORS does not apply.
+
+The `slh_dsa` module implements the pure interface of FIPS 205, Algorithms 18 to
+24, with the SLH-DSA-SHA2-256f parameters. It reuses the `fors` module with
+35 trees of height 9, and the RFC 8391 module's base-16 digits and checksum,
+which FIPS 205 computes the same way; its WOTS+ chains use FIPS 205's hashing,
+without masks. A signature is 49,856 bytes: the 32-byte randomizer, the
+11,200-byte FORS signature, then for each layer 67 WOTS+ values and 4
+authentication-path nodes. The public key is 64 bytes: the public seed
+followed by the root. In a release build on an Apple M4 Max, key generation
+takes about 1 ms, signing about 21 ms, and verification about 0.6 ms.
+
+```rust
+use pq_crypto::slh_dsa::{Context, Signature, SigningKey, VerifyingKey};
+
+let key = SigningKey::generate(&mut getrandom::SysRng)
+    .expect("system randomness must be available");
+let public_bytes = key.verifying_key().to_bytes();
+
+// A context binds signatures to one purpose; Context::EMPTY sets none.
+let context = Context::new(b"example").unwrap();
+let signature_bytes = key
+    .sign(b"0xtest", context, &mut getrandom::SysRng)
+    .expect("system randomness must be available")
+    .to_bytes();
+
+let public = VerifyingKey::try_from(public_bytes.as_slice()).unwrap();
+let signature = Signature::try_from(signature_bytes.as_slice()).unwrap();
+public.verify(b"0xtest", context, &signature).unwrap();
+```
+
+Run the [complete example](examples/slh_dsa_sign_verify.rs) with
+`cargo run --locked --example slh_dsa_sign_verify`.
+
+`sign` is hedged: it mixes fresh randomness into the randomizer, so signing one
+message twice gives two different valid signatures. This is the FIPS 205
+default. `sign_deterministic` uses the public seed instead, so the same message
+and context always give the same signature; prefer it only where good
+randomness is unavailable. A context holds at most 255 bytes, and a signature
+made under one context does not verify under any other.
+`SigningKey::from_seeds(SecretSeed, PrfKey, PublicSeed)` imports the three FIPS
+205 secrets and recomputes the root; it rejects a secret seed or PRF key equal
+to the public seed, which the public key publishes. Seeds are the persistent
+form of a key: there is no secret-key byte encoding. The caller authenticates
+the expected public key. HashSLH-DSA (prehash signing) and the other parameter
+sets are not implemented.
+
+Key generation, signing through both FIPS 205 interfaces (hedged and
+deterministic), and verification reproduce NIST's FIPS 205 test results; see
+[tests/data/slh_dsa/README.md](tests/data/slh_dsa/README.md).
 
 ## Further reading and validation
 
@@ -217,11 +293,12 @@ cargo clippy --locked --all-targets -- -D warnings
 ```
 
 Fixture provenance and reproduction instructions are in
-[tests/data/wots/README.md](tests/data/wots/README.md) and
-[tests/data/fors/README.md](tests/data/fors/README.md).
+[tests/data/wots/README.md](tests/data/wots/README.md),
+[tests/data/fors/README.md](tests/data/fors/README.md), and
+[tests/data/slh_dsa/README.md](tests/data/slh_dsa/README.md).
 
 This is an unaudited prototype. Managed secret storage is zeroized on drop,
 with no guarantee of erasing caller copies, compiler temporaries, or registers.
-The crate supplies standalone signature primitives; Merkle trees of WOTS+ keys,
-the SLH-DSA hypertree, durable key-use tracking, wallet integration, and network
-deployment remain outside its scope.
+The crate supplies standalone WOTS+ and FORS primitives and SLH-DSA-SHA2-256f;
+Merkle trees of RFC 8391 WOTS+ keys, durable key-use tracking, wallet
+integration, and network deployment remain outside its scope.

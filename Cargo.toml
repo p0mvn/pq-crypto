@@ -5,7 +5,7 @@ edition = "2024"
 rust-version = "1.97"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/p0mvn/pq-crypto"
-description = "Post-quantum hash-based signatures: standalone fixed-profile RFC 8391 WOTS+ and FIPS 205 FORS"
+description = "Post-quantum hash-based signatures: RFC 8391 WOTS+, FIPS 205 FORS, and FIPS 205 SLH-DSA-SHA2-256f"
 exclude = [".cursor/", "docs/notes.md"]
 
 [dependencies]
